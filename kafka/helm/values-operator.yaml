@@ -1,0 +1,27 @@
+# Helm values cho chart strimzi/strimzi-kafka-operator.
+# KHAI BÁO ĐẦY ĐỦ — cài chỉ bằng: helm upgrade --install ... -f values-operator.yaml
+# Không cần kubectl patch / set env. Xử lý trọn 2 ràng buộc PSS restricted của namespace kafka.
+
+# Chỉ watch namespace kafka (ít quyền hơn cluster-wide).
+watchNamespaces:
+  - kafka
+
+# (1) Operator sinh pod KAFKA đạt PSS restricted.
+# Chart KHÔNG có key riêng cho việc này; phải set qua biến môi trường của operator.
+# Mặc định provider là "baseline" -> pod Kafka thiếu securityContext -> PSS chặn, 0 pod tạo.
+extraEnvs:
+  - name: STRIMZI_POD_SECURITY_PROVIDER_CLASS
+    value: restricted
+
+# (2) Chính pod OPERATOR đạt PSS restricted (chart để trống mặc định -> bị PSS chặn khi rollout).
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault

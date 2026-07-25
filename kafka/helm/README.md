@@ -1,83 +1,147 @@
-# fss-kafka Helm chart
+# Kafka HA trên Strimzi (KRaft) — triển khai bằng Helm
 
-Chart Helm bọc các Strimzi CR (Kafka + KafkaNodePool + KafkaTopic + KafkaUser +
-NetworkPolicy). **KHÔNG** cài Strimzi operator — operator dùng chart chính chủ, cài riêng.
+Toàn bộ triển khai qua **Helm**, không dùng file YAML thô. Gồm **2 Helm release**
+(không gộp được thành 1 — xem "Vì sao 2 release" bên dưới):
 
-```
-fss-kafka/
-├── Chart.yaml
-├── values.yaml          # DEFAULT = production HA (3 broker + 3 controller, TLS/mTLS, rack, ACL)
-├── values-dev.yaml      # override: single-zone, no TLS/auth, footprint nhỏ
-└── templates/
-    ├── _helpers.tpl
-    ├── storageclass.yaml     # chỉ tạo khi storage.create=true
-    ├── nodepool-controller.yaml
-    ├── nodepool-broker.yaml
-    ├── kafka.yaml
-    ├── networkpolicy.yaml    # chỉ tạo khi networkPolicy.enabled=true
-    ├── topics.yaml           # range .Values.topics
-    ├── users.yaml            # range .Values.users
-    └── NOTES.txt
-```
+| Release | Chart | Tạo ra |
+|---|---|---|
+| `strimzi-operator` | `strimzi/strimzi-kafka-operator` + `values-operator.yaml` | operator + CRDs |
+| `fss-kafka` | `./fss-kafka` (chart nội bộ) | StorageClass, Kafka CR, node pools, topics, users, NetworkPolicy |
+
+## Topology HA
+| Thành phần | Replicas | Chịu lỗi |
+|---|---|---|
+| controller (KRaft quorum) | 3 | mất 1 controller → không downtime metadata |
+| broker (data plane) | 3 | mất 1 broker → 0 mất dữ liệu (RF=3, ISR=2, **producer acks=all**) |
+
+HA đến từ 4 lớp: replication (RF=3, min.insync=2, no unclean election) · rack awareness
+(replica trải 3 zone) · topology spread (`DoNotSchedule`, 1 pod/zone) · PDB (`maxUnavailable=1`).
+
+---
 
 ## Cài đặt
 
-### 1. Operator (một lần, tách khỏi chart này)
+### 0. Namespace + PSS labels (bootstrap, 1 lần)
+Namespace phải tồn tại + có nhãn PSS **trước** khi cài operator (operator cài *vào* ns này).
+```bash
+kubectl create namespace kafka
+kubectl label namespace kafka \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/warn=restricted \
+  pod-security.kubernetes.io/audit=restricted --overwrite
+```
+
+### 1. Operator (release 1)
 ```bash
 helm repo add strimzi https://strimzi.io/charts/ && helm repo update
-helm install strimzi-operator strimzi/strimzi-kafka-operator \
-  -n kafka --create-namespace --set watchNamespaces="{kafka}"
+helm upgrade --install strimzi-operator strimzi/strimzi-kafka-operator \
+  -n kafka -f values-operator.yaml
 kubectl -n kafka rollout status deploy/strimzi-cluster-operator
 ```
+`values-operator.yaml` xử lý trọn PSS restricted (khai báo, không patch tay):
+- `extraEnvs: STRIMZI_POD_SECURITY_PROVIDER_CLASS=restricted` → pod Kafka đạt restricted
+  (chart KHÔNG có key `podSecurityProviderClass` — phải qua `extraEnvs`).
+- `podSecurityContext` + `securityContext` → chính pod operator đạt restricted.
 
-### 2. Validate TRƯỚC KHI cài (bắt buộc)
+Xác nhận biến đã vào:
+```bash
+kubectl -n kafka get deploy strimzi-cluster-operator \
+  -o jsonpath='{..env[?(@.name=="STRIMZI_POD_SECURITY_PROVIDER_CLASS")].value}{"\n"}'   # -> restricted
+```
+
+### 2. Validate chart TRƯỚC KHI cài app (release 2)
 ```bash
 helm lint ./fss-kafka
-# Render + kiểm tra schema theo version cluster đích:
-helm template rel ./fss-kafka | kubeconform -strict -kubernetes-version 1.30.0 \
-  -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
-# Server-side dry-run (cần CRD Strimzi đã có trên cluster):
-helm template rel ./fss-kafka | kubectl apply --server-side --dry-run=server -f -
+helm template fss-kafka ./fss-kafka -n kafka | kubectl apply --server-side --dry-run=server -f -
 ```
 
-### 3. Cài
+### 3. App: cụm Kafka (release 2)
 ```bash
-# Production HA (values.yaml mặc định) — nhớ chỉnh storage.className cho khớp cluster:
-helm install fss-kafka ./fss-kafka -n kafka \
-  --set storage.className=<storageclass-thật>
-
-# Dev (single-zone, no TLS):
-helm install fss-kafka ./fss-kafka -n kafka -f ./fss-kafka/values-dev.yaml \
-  --set storage.className=<storageclass-thật>
+# storage.create=true => chart tạo StorageClass kafka-ssd (Longhorn, numberOfReplicas=1).
+# Nếu kafka-ssd đã tồn tại: kubectl delete sc kafka-ssd  (an toàn, không xoá PV/PVC).
+helm upgrade --install fss-kafka ./fss-kafka -n kafka
 
 kubectl -n kafka wait kafka/fss-kafka --for=condition=Ready --timeout=600s
+kubectl -n kafka get pods -o wide -L topology.kubernetes.io/zone
 ```
 
-## Nâng cấp / rollback
+Dev (single-zone, no TLS/auth):
 ```bash
-helm diff upgrade fss-kafka ./fss-kafka -n kafka   # cần plugin helm-diff — REVIEW trước
-helm upgrade fss-kafka ./fss-kafka -n kafka
-helm rollback fss-kafka <REVISION> -n kafka        # helm history fss-kafka -n kafka để xem revision
+helm upgrade --install fss-kafka ./fss-kafka -n kafka -f ./fss-kafka/values-dev.yaml
 ```
-- `storage.reclaimPolicy: Retain` + `deleteClaim: false` => `helm uninstall` KHÔNG xoá PVC/dữ liệu.
-  Xoá PVC thủ công nếu thực sự muốn huỷ dữ liệu.
-- Đổi `kafka.version` rồi mới nâng `kafka.metadataVersion` ở lần upgrade sau (2 bước, không đảo ngược metadataVersion).
 
-## Các knob values quan trọng
+---
+
+## Vì sao 2 release (không gộp 1 `helm install`)
+Operator cài **CRD** (`Kafka`, `KafkaNodePool`). Nếu Kafka CR nằm chung release với
+operator, Helm apply CR khi CRD chưa đăng ký → `no matches for kind "Kafka"`. Strimzi vì
+thế yêu cầu operator trước, CR sau. Đây là ràng buộc thật, không né được bằng chart lồng nhau.
+
+## Values quan trọng (`fss-kafka/values.yaml`)
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
-| `broker.replicas` / `controller.replicas` | 3 / 3 | quy mô HA |
-| `kafka.config.min.insync.replicas` | 2 | ISR tối thiểu (cần producer acks=all) |
-| `kafka.rack` | `{topologyKey: ...zone}` | đặt `null` để tắt rack + topology spread (dev/single-zone) |
-| `kafka.authorization` | `{type: simple}` | đặt `null` để tắt ACL (dev) |
-| `listeners` | TLS+mTLS 9093 | override thành plain cho dev |
-| `storage.className` | `kafka-ssd` | **BẮT BUỘC** khớp cluster |
-| `storage.create` | `false` | `true` để chart tự tạo StorageClass |
+| `broker.replicas`/`controller.replicas` | 3/3 | quy mô HA |
+| `kafka.config.min.insync.replicas` | 2 | cần producer acks=all mới có tác dụng |
+| `kafka.rack` | `{topologyKey: ...zone}` | `null` để tắt (dev/single-zone) |
+| `kafka.authorization` | `{type: simple}` | `null` để tắt ACL (dev) |
+| `listeners` | TLS+mTLS 9093 | override plain cho dev |
+| `storage.create` / `storage.className` | `true` / `kafka-ssd` | chart tạo SC Longhorn |
 | `networkPolicy.enabled` | `true` | default-deny + allow client namespace |
 | `topics` / `users` | ví dụ | khai báo declaratively |
 
-## Nhắc lại về HA (không đổi so với bản raw YAML)
-HA chỉ "đảm bảo" khi: (1) cluster có ≥3 node ở ≥3 zone, (2) StorageClass
-`WaitForFirstConsumer`, (3) **producer acks=all + idempotence**, (4) đã diễn tập
-xoá 1 broker ở staging. Chart này không thay đổi các điều kiện đó — chỉ đổi cách đóng gói.
-Toàn bộ là draft cần human review + qua CI/CD trước prod.
+---
+
+## Validate HA
+```bash
+kubectl -n kafka get pods -o wide -L topology.kubernetes.io/zone   # 1 broker+1 controller mỗi zone
+kubectl -n kafka get pdb                                            # maxUnavailable=1
+kubectl get nodes -L topology.kubernetes.io/zone                   # đủ 3 zone? thiếu -> pod Pending
+kubectl -n kafka get pods | grep -i pending                        # phải RỖNG
+
+# RF thật của __consumer_offsets (listener chỉ TLS 9093 -> dùng admin config Strimzi mount sẵn):
+kubectl -n kafka exec -it fss-kafka-broker-0 -- \
+  bin/kafka-topics.sh --describe --topic __consumer_offsets \
+  --bootstrap-server fss-kafka-kafka-bootstrap:9093 --command-config /tmp/strimzi.properties
+
+# Diễn tập chịu lỗi (staging, KHÔNG prod): xoá 1 broker, producer acks=all phải KHÔNG lỗi:
+kubectl -n kafka delete pod fss-kafka-broker-1
+```
+
+## Client mTLS
+```bash
+kubectl -n kafka get secret fss-kafka-cluster-ca-cert -o jsonpath='{.data.ca\.crt}'   | base64 -d > ca.crt
+kubectl -n kafka get secret app-orders-producer      -o jsonpath='{.data.user\.crt}' | base64 -d > user.crt
+kubectl -n kafka get secret app-orders-producer      -o jsonpath='{.data.user\.key}' | base64 -d > user.key
+# Bootstrap nội bộ: fss-kafka-kafka-bootstrap.kafka.svc:9093
+```
+
+## Yêu cầu phía client (BẮT BUỘC để HA có nghĩa)
+`min.insync.replicas=2` chỉ chống mất dữ liệu khi producer chờ đủ replica ack:
+```properties
+acks=all
+enable.idempotence=true
+max.in.flight.requests.per.connection=5
+retries=2147483647
+delivery.timeout.ms=120000
+```
+`acks=1`/`acks=0` => mất message dù cụm vẫn "HA". Đưa vào code review chuẩn.
+
+## Nâng cấp / rollback
+```bash
+helm -n kafka history fss-kafka
+helm -n kafka upgrade fss-kafka ./fss-kafka          # xem diff trước nếu có plugin helm-diff
+helm -n kafka rollback fss-kafka <REVISION>
+```
+- `reclaimPolicy: Retain` + `deleteClaim: false` => `helm uninstall` KHÔNG xoá PVC/dữ liệu.
+- Đổi `kafka.version` rồi mới set `kafka.metadataVersion` ở upgrade sau (2 bước, không đảo ngược).
+- DR thật: MirrorMaker2 / snapshot PVC (Velero) — replication nội cụm KHÔNG thay backup.
+
+## Bảo mật (fintech / NĐ 13/2023)
+- Listener chỉ internal + TLS + mTLS; authorization `simple` deny-by-default.
+- Cert do Strimzi CA tự sinh & xoay vòng; cân nhắc rút ngắn `clusterCa.renewalDays` cho prod.
+- Mọi thứ là **draft cần human review + qua CI/CD** trước prod.
+
+## Điều kiện để HA thực sự "đảm bảo" (không đổi so với bản raw)
+≥3 node ở ≥3 zone · StorageClass `WaitForFirstConsumer` · **producer acks=all** ·
+đã diễn tập xoá 1 broker. Helm chỉ đổi cách đóng gói, không thay đổi các điều kiện này.

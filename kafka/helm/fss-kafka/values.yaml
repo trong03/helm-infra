@@ -69,9 +69,10 @@ broker:
 storage:
   # Name of the StorageClass the volumes use. REQUIRED.
   className: kafka-ssd
-  # If true, the chart also creates the StorageClass below (cluster-scoped).
-  # Usually keep false and manage the SC separately (see kafka/05-storageclass.yaml).
-  create: false
+  # Chart tự tạo StorageClass "kafka-ssd" (cluster-scoped). All-Helm: để true.
+  # LƯU Ý: nếu kafka-ssd đã tồn tại (tạo tay trước đó), Helm sẽ báo "invalid ownership
+  # metadata" -> xoá SC cũ trước: kubectl delete sc kafka-ssd (KHÔNG ảnh hưởng PV/PVC đã có).
+  create: true
   provisioner: driver.longhorn.io
   volumeBindingMode: WaitForFirstConsumer
   allowVolumeExpansion: true
