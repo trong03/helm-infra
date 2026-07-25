@@ -10,7 +10,9 @@ metadata:
 spec:
   kafka:
     version: {{ .Values.kafka.version | quote }}
-    metadataVersion: {{ .Values.kafka.metadataVersion | quote }}
+    {{- with .Values.kafka.metadataVersion }}
+    metadataVersion: {{ . | quote }}
+    {{- end }}
     # replicas & storage come from KafkaNodePool CRs, not here.
     listeners:
       {{- toYaml .Values.listeners | nindent 6 }}

@@ -8,8 +8,9 @@ metadata:
     strimzi.io/kraft: enabled               # KRaft mode (no ZooKeeper)
 spec:
   kafka:
-    version: 3.9.0
-    metadataVersion: 3.9-IV0
+    version: 4.3.0
+    # metadataVersion omitted on purpose: for a fresh cluster Strimzi defaults it to
+    # match the Kafka version. Only set it explicitly when doing a controlled upgrade.
     # replicas & storage are defined per KafkaNodePool, NOT here.
     listeners:
       # Internal-only, encrypted, mutual-TLS authenticated. No external exposure.
