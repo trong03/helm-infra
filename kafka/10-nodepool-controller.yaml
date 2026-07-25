@@ -1,6 +1,6 @@
 # Dedicated KRaft controllers (quorum metadata plane), isolated from brokers.
 # 3 replicas => quorum tolerates loss of 1 controller with no metadata downtime.
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
   name: controller

@@ -1,6 +1,6 @@
 # Example topic. RF=3 + min.insync.replicas=2 mirrors cluster HA defaults.
 # Copy per real topic; never rely on auto-create (disabled on the cluster).
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: orders-events

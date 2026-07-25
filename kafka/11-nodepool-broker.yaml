@@ -1,7 +1,7 @@
 # Dedicated brokers (data plane). 3 replicas across 3 zones.
 # RF=3 + min.insync.replicas=2 (set on the Kafka CR) => survive loss of 1 broker
 # with zero data loss and no producer downtime (acks=all).
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
   name: broker

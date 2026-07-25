@@ -1,6 +1,6 @@
 # mTLS client identity with least-privilege ACLs (deny-by-default via authorization: simple).
 # The user operator creates a Secret "app-orders-producer" holding the client cert/key.
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaUser
 metadata:
   name: app-orders-producer
