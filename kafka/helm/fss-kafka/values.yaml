@@ -1,0 +1,110 @@
+# ============================================================================
+# fss-kafka — DEFAULTS = production HA. Override per environment with -f values-<env>.yaml
+# The Strimzi operator MUST already be installed in the target namespace.
+# ============================================================================
+
+cluster:
+  # Kafka CR name; also the strimzi.io/cluster label all resources join.
+  name: fss-kafka
+
+kafka:
+  version: "3.9.0"
+  metadataVersion: "3.9-IV0"
+
+  # HA / durability core. This is what guarantees "no data loss on 1 broker down"
+  # (only in combination with producer acks=all — enforce that client-side).
+  config:
+    default.replication.factor: 3
+    min.insync.replicas: 2
+    offsets.topic.replication.factor: 3
+    transaction.state.log.replication.factor: 3
+    transaction.state.log.min.isr: 2
+    unclean.leader.election.enable: false
+    auto.create.topics.enable: false
+
+  # Rack awareness: spread partition replicas across zones. Set rack: null to disable
+  # (e.g. dev / single-zone cluster). When set, topologySpread is also applied to pods.
+  rack:
+    topologyKey: topology.kubernetes.io/zone
+
+  # Deny-by-default ACLs. Set authorization: null to disable (dev only).
+  authorization:
+    type: simple
+
+  pdb:
+    maxUnavailable: 1
+
+# Listeners passed verbatim to spec.kafka.listeners. Default: internal TLS + mTLS.
+# For dev, override to a plain internal listener (see values-dev.yaml).
+listeners:
+  - name: tls
+    port: 9093
+    type: internal
+    tls: true
+    authentication:
+      type: tls
+
+controller:
+  replicas: 3
+  storage:
+    size: 20Gi
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "1",  memory: 2Gi }
+  jvm:
+    heap: 1G          # -Xms == -Xmx; keep <= ~50% of memory limit
+
+broker:
+  replicas: 3
+  storage:
+    size: 100Gi
+  resources:
+    requests: { cpu: "1", memory: 4Gi }
+    limits:   { cpu: "2", memory: 8Gi }
+  jvm:
+    heap: 3G          # <= ~50% of 8Gi limit; rest is OS page cache
+
+storage:
+  # Name of the StorageClass the volumes use. REQUIRED.
+  className: kafka-ssd
+  # If true, the chart also creates the StorageClass below (cluster-scoped).
+  # Usually keep false and manage the SC separately (see kafka/05-storageclass.yaml).
+  create: false
+  provisioner: driver.longhorn.io
+  volumeBindingMode: WaitForFirstConsumer
+  allowVolumeExpansion: true
+  reclaimPolicy: Retain
+  parameters:
+    numberOfReplicas: "1"       # Kafka RF=3 already; avoid double-replication
+    dataLocality: best-effort
+    fsType: ext4
+
+entityOperator:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+  # Namespaces labelled with this key=value may reach the TLS listener.
+  clientNamespaceLabel: kafka-client
+  clientNamespaceValue: "true"
+
+# Declaratively managed topics. Each becomes a KafkaTopic CR.
+topics:
+  - name: orders-events
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+      retention.ms: "604800000"
+      cleanup.policy: delete
+
+# Declaratively managed users (mTLS + least-privilege ACLs).
+users:
+  - name: app-orders-producer
+    authentication: { type: tls }
+    authorization:
+      type: simple
+      acls:
+        - resource: { type: topic, name: orders-events, patternType: literal }
+          operations: [Write, Describe]
+          host: "*"

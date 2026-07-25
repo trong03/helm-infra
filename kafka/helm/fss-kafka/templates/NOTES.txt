@@ -1,0 +1,17 @@
+fss-kafka installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Cluster: {{ include "fss-kafka.name" . }}  |  brokers: {{ .Values.broker.replicas }}  controllers: {{ .Values.controller.replicas }}
+
+1) The Strimzi operator must be running in this namespace. Verify:
+   kubectl -n {{ .Release.Namespace }} get deploy strimzi-cluster-operator
+
+2) Wait for the cluster to become Ready:
+   kubectl -n {{ .Release.Namespace }} wait kafka/{{ include "fss-kafka.name" . }} --for=condition=Ready --timeout=600s
+
+3) Internal bootstrap (mTLS): {{ include "fss-kafka.name" . }}-kafka-bootstrap.{{ .Release.Namespace }}.svc:{{ (index .Values.listeners 0).port }}
+
+{{- if .Values.kafka.rack }}
+
+4) HA reminder: producers MUST use acks=all + enable.idempotence=true, otherwise
+   min.insync.replicas={{ index .Values.kafka.config "min.insync.replicas" }} does not prevent data loss.
+{{- end }}

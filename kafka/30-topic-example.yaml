@@ -1,0 +1,16 @@
+# Example topic. RF=3 + min.insync.replicas=2 mirrors cluster HA defaults.
+# Copy per real topic; never rely on auto-create (disabled on the cluster).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: orders-events
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: fss-kafka
+spec:
+  partitions: 6                              # >= broker count; scale for parallelism (can only increase)
+  replicas: 3
+  config:
+    min.insync.replicas: "2"
+    retention.ms: "604800000"                # 7 days
+    cleanup.policy: delete

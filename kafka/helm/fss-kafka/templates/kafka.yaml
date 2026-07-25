@@ -1,0 +1,34 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ include "fss-kafka.name" . }}
+  labels:
+    {{- include "fss-kafka.labels" . | nindent 4 }}
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: {{ .Values.kafka.version | quote }}
+    metadataVersion: {{ .Values.kafka.metadataVersion | quote }}
+    # replicas & storage come from KafkaNodePool CRs, not here.
+    listeners:
+      {{- toYaml .Values.listeners | nindent 6 }}
+    {{- with .Values.kafka.rack }}
+    rack:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.kafka.authorization }}
+    authorization:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    config:
+      {{- toYaml .Values.kafka.config | nindent 6 }}
+    template:
+      podDisruptionBudget:
+        maxUnavailable: {{ .Values.kafka.pdb.maxUnavailable }}
+  {{- if .Values.entityOperator.enabled }}
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+  {{- end }}

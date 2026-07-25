@@ -1,0 +1,41 @@
+# DEV override: single-zone, no TLS/auth, smaller footprint. NOT for prod.
+# helm install fss-kafka ./fss-kafka -n kafka -f fss-kafka/values-dev.yaml
+kafka:
+  # Single zone -> disable rack awareness + topology spread (else pods Pending).
+  rack: null
+  # No ACLs in dev.
+  authorization: null
+  config:
+    default.replication.factor: 3
+    min.insync.replicas: 2
+    offsets.topic.replication.factor: 3
+    transaction.state.log.replication.factor: 3
+    transaction.state.log.min.isr: 2
+
+# Plain internal listener (no TLS/mTLS) for quick local testing.
+listeners:
+  - name: plain
+    port: 9092
+    type: internal
+    tls: false
+
+broker:
+  storage:
+    size: 20Gi
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits:   { cpu: "1",  memory: 2Gi }
+  jvm:
+    heap: 768M
+
+controller:
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: 500m, memory: 1Gi }
+  jvm:
+    heap: 512M
+
+networkPolicy:
+  enabled: false
+
+users: []

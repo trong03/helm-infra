@@ -1,0 +1,37 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: broker
+  labels:
+    strimzi.io/cluster: {{ include "fss-kafka.name" . }}
+    {{- include "fss-kafka.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.broker.replicas }}
+  roles:
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: {{ .Values.broker.storage.size | quote }}
+        class: {{ required "storage.className is required" .Values.storage.className }}
+        deleteClaim: false
+        kraftMetadata: shared
+  resources:
+    {{- toYaml .Values.broker.resources | nindent 4 }}
+  jvmOptions:
+    -Xms: {{ .Values.broker.jvm.heap | quote }}
+    -Xmx: {{ .Values.broker.jvm.heap | quote }}
+  {{- with .Values.kafka.rack }}
+  template:
+    pod:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: {{ .topologyKey }}
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
+              strimzi.io/pool-name: broker
+  {{- end }}

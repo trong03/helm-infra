@@ -1,0 +1,44 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: fss-kafka
+  namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled          # topology comes from KafkaNodePool CRs
+    strimzi.io/kraft: enabled               # KRaft mode (no ZooKeeper)
+spec:
+  kafka:
+    version: 3.9.0
+    metadataVersion: 3.9-IV0
+    # replicas & storage are defined per KafkaNodePool, NOT here.
+    listeners:
+      # Internal-only, encrypted, mutual-TLS authenticated. No external exposure.
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: tls
+    # Rack awareness: Strimzi sets broker.rack per zone AND constrains replica
+    # placement so partition replicas span zones, not just nodes.
+    rack:
+      topologyKey: topology.kubernetes.io/zone
+    authorization:
+      type: simple                          # KafkaUser ACLs enforced; deny-by-default
+    config:
+      # ---- HA / durability core: this is what actually guarantees "no data loss on 1 broker down" ----
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      # Safety against silent data loss on failover:
+      unclean.leader.election.enable: false
+      auto.create.topics.enable: false      # force explicit, RF-correct topic creation
+    template:
+      podDisruptionBudget:
+        maxUnavailable: 1                    # voluntary disruptions (drain/upgrade) take at most 1 broker
+  # entityOperator manages KafkaTopic and KafkaUser CRs declaratively.
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}

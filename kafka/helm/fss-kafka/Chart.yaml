@@ -1,0 +1,8 @@
+apiVersion: v2
+name: fss-kafka
+version: 0.1.0
+appVersion: "3.9.0"
+type: application
+description: HA Kafka cluster (Strimzi KRaft) — brokers, KRaft controllers, topics, users, NetworkPolicy. Requires the Strimzi operator installed separately.
+kubeVersion: ">=1.30.0-0"
+keywords: [kafka, strimzi, kraft, ha]
