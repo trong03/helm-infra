@@ -23,9 +23,14 @@ spec:
   jvmOptions:
     -Xms: {{ .Values.broker.jvm.heap | quote }}
     -Xmx: {{ .Values.broker.jvm.heap | quote }}
-  {{- with .Values.kafka.rack }}
+  {{- if or .Values.tolerations .Values.kafka.rack }}
   template:
     pod:
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kafka.rack }}
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: {{ .topologyKey }}
@@ -34,4 +39,5 @@ spec:
             matchLabels:
               strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
               strimzi.io/pool-name: broker
+      {{- end }}
   {{- end }}

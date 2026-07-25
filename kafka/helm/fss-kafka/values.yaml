@@ -24,10 +24,12 @@ kafka:
     unclean.leader.election.enable: false
     auto.create.topics.enable: false
 
-  # Rack awareness: spread partition replicas across zones. Set rack: null to disable
-  # (e.g. dev / single-zone cluster). When set, topologySpread is also applied to pods.
+  # Rack awareness: spread partition replicas across failure domains. Set rack: null to disable.
+  # On-prem KHÔNG có label zone -> dùng kubernetes.io/hostname (mọi node đều có) => trải theo
+  # NODE, HA khi mất 1 node. Nếu cluster CÓ label topology.kubernetes.io/zone thật thì đổi lại
+  # về zone để chống mất cả AZ. topologySpread của pod cũng dùng chính key này.
   rack:
-    topologyKey: topology.kubernetes.io/zone
+    topologyKey: kubernetes.io/hostname
 
   # Deny-by-default ACLs. Set authorization: null to disable (dev only).
   authorization:
@@ -81,6 +83,15 @@ storage:
     numberOfReplicas: "1"       # Kafka RF=3 already; avoid double-replication
     dataLocality: best-effort
     fsType: ext4
+
+# Tolerations cho pod broker + controller. Cluster 3-node của FSS có 2 node control-plane
+# bị taint NoSchedule; tolerate nó để Kafka trải đủ 3 node (HA mức node) mà KHÔNG phải gỡ
+# taint toàn cục. Nếu cluster có worker riêng đủ 3+ node, đặt tolerations: [] để KHÔNG chạy
+# trên control-plane.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
 
 entityOperator:
   enabled: true
