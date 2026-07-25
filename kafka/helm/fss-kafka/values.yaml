@@ -1,20 +1,17 @@
 # ============================================================================
-# fss-kafka — DEFAULTS = production HA. Override per environment with -f values-<env>.yaml
-# The Strimzi operator MUST already be installed in the target namespace.
+# fss-kafka — DUAL-ROLE KRaft (controller + broker trong cùng node). Hợp cluster nhỏ.
+# Strimzi operator PHẢI cài sẵn (xem ../values-operator.yaml + helm/README.md).
 # ============================================================================
 
 cluster:
-  # Kafka CR name; also the strimzi.io/cluster label all resources join.
   name: fss-kafka
 
 kafka:
   version: "4.3.0"
-  # Leave empty for a fresh cluster (Strimzi defaults it to match version).
-  # Set explicitly (e.g. "4.3-IV0") only for a controlled metadata upgrade.
+  # Trống cho cụm mới (Strimzi tự set khớp version). Chỉ set khi nâng metadata có kiểm soát.
   metadataVersion: ""
 
-  # HA / durability core. This is what guarantees "no data loss on 1 broker down"
-  # (only in combination with producer acks=all — enforce that client-side).
+  # HA / durability core (chỉ có tác dụng khi producer acks=all).
   config:
     default.replication.factor: 3
     min.insync.replicas: 2
@@ -24,22 +21,17 @@ kafka:
     unclean.leader.election.enable: false
     auto.create.topics.enable: false
 
-  # Rack awareness: spread partition replicas across failure domains. Set rack: null to disable.
-  # On-prem KHÔNG có label zone -> dùng kubernetes.io/hostname (mọi node đều có) => trải theo
-  # NODE, HA khi mất 1 node. Nếu cluster CÓ label topology.kubernetes.io/zone thật thì đổi lại
-  # về zone để chống mất cả AZ. topologySpread của pod cũng dùng chính key này.
+  # On-prem không có label zone -> dùng hostname (mọi node có). Trải theo NODE, HA khi mất 1 node.
+  # Cluster có zone thật thì đổi về topology.kubernetes.io/zone. topologySpread của pod cũng dùng key này.
   rack:
     topologyKey: kubernetes.io/hostname
 
-  # Deny-by-default ACLs. Set authorization: null to disable (dev only).
   authorization:
     type: simple
 
   pdb:
     maxUnavailable: 1
 
-# Listeners passed verbatim to spec.kafka.listeners. Default: internal TLS + mTLS.
-# For dev, override to a plain internal listener (see values-dev.yaml).
 listeners:
   - name: tls
     port: 9093
@@ -48,46 +40,32 @@ listeners:
     authentication:
       type: tls
 
-controller:
+# Dual-role: mỗi node vừa controller vừa broker. replicas=3 -> 3 pod, 1/node.
+# Sizing hạ cho cluster 3-node kiêm control-plane. Prod thật cần worker riêng, RAM/disk lớn hơn.
+nodes:
   replicas: 3
   storage:
-    size: 20Gi
+    size: 10Gi          # < disk trống Longhorn mỗi node (numberOfReplicas=1)
   resources:
-    requests: { cpu: 500m, memory: 1Gi }
+    requests: { cpu: 250m, memory: 1Gi }
     limits:   { cpu: "1",  memory: 2Gi }
   jvm:
-    heap: 1G          # -Xms == -Xmx; keep <= ~50% of memory limit
-
-broker:
-  replicas: 3
-  storage:
-    size: 100Gi
-  resources:
-    requests: { cpu: "1", memory: 4Gi }
-    limits:   { cpu: "2", memory: 8Gi }
-  jvm:
-    heap: 3G          # <= ~50% of 8Gi limit; rest is OS page cache
+    heap: 1G            # <= ~50% memory limit
 
 storage:
-  # Name of the StorageClass the volumes use. REQUIRED.
   className: kafka-ssd
-  # Chart tự tạo StorageClass "kafka-ssd" (cluster-scoped). All-Helm: để true.
-  # LƯU Ý: nếu kafka-ssd đã tồn tại (tạo tay trước đó), Helm sẽ báo "invalid ownership
-  # metadata" -> xoá SC cũ trước: kubectl delete sc kafka-ssd (KHÔNG ảnh hưởng PV/PVC đã có).
-  create: true
+  create: true          # chart tự tạo SC Longhorn. Nếu SC đã tồn tại: kubectl delete sc kafka-ssd trước.
   provisioner: driver.longhorn.io
   volumeBindingMode: WaitForFirstConsumer
   allowVolumeExpansion: true
   reclaimPolicy: Retain
   parameters:
-    numberOfReplicas: "1"       # Kafka RF=3 already; avoid double-replication
+    numberOfReplicas: "1"     # Kafka RF=3 lo durability; tránh replication kép
     dataLocality: best-effort
     fsType: ext4
 
-# Tolerations cho pod broker + controller. Cluster 3-node của FSS có 2 node control-plane
-# bị taint NoSchedule; tolerate nó để Kafka trải đủ 3 node (HA mức node) mà KHÔNG phải gỡ
-# taint toàn cục. Nếu cluster có worker riêng đủ 3+ node, đặt tolerations: [] để KHÔNG chạy
-# trên control-plane.
+# Cho phép pod Kafka chạy trên node control-plane (cluster 3-node, 2 node là control-plane).
+# Có worker riêng đủ 3+ node thì đặt tolerations: [] để KHÔNG chạy trên control-plane.
 tolerations:
   - key: node-role.kubernetes.io/control-plane
     operator: Exists
@@ -98,11 +76,9 @@ entityOperator:
 
 networkPolicy:
   enabled: true
-  # Namespaces labelled with this key=value may reach the TLS listener.
   clientNamespaceLabel: kafka-client
   clientNamespaceValue: "true"
 
-# Declaratively managed topics. Each becomes a KafkaTopic CR.
 topics:
   - name: orders-events
     partitions: 6
@@ -112,7 +88,6 @@ topics:
       retention.ms: "604800000"
       cleanup.policy: delete
 
-# Declaratively managed users (mTLS + least-privilege ACLs).
 users:
   - name: app-orders-producer
     authentication: { type: tls }

@@ -19,21 +19,15 @@ listeners:
     type: internal
     tls: false
 
-broker:
+nodes:
+  replicas: 3
   storage:
-    size: 20Gi
+    size: 5Gi
   resources:
-    requests: { cpu: 250m, memory: 1Gi }
-    limits:   { cpu: "1",  memory: 2Gi }
+    requests: { cpu: 250m, memory: 768Mi }
+    limits:   { cpu: 500m, memory: 1536Mi }
   jvm:
     heap: 768M
-
-controller:
-  resources:
-    requests: { cpu: 250m, memory: 512Mi }
-    limits:   { cpu: 500m, memory: 1Gi }
-  jvm:
-    heap: 512M
 
 networkPolicy:
   enabled: false

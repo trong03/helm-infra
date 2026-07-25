@@ -1,28 +1,31 @@
+# Dual-role KRaft node pool: mỗi node vừa controller (metadata quorum) vừa broker (data).
+# 3 replicas -> quorum 3 + RF=3, 1 pod/node. Hợp cluster 3-node.
 apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
-  name: controller
+  name: kafka
   labels:
     strimzi.io/cluster: {{ include "fss-kafka.name" . }}
     {{- include "fss-kafka.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.controller.replicas }}
+  replicas: {{ .Values.nodes.replicas }}
   roles:
     - controller
+    - broker
   storage:
     type: jbod
     volumes:
       - id: 0
         type: persistent-claim
-        size: {{ .Values.controller.storage.size | quote }}
+        size: {{ .Values.nodes.storage.size | quote }}
         class: {{ required "storage.className is required" .Values.storage.className }}
         deleteClaim: false
         kraftMetadata: shared
   resources:
-    {{- toYaml .Values.controller.resources | nindent 4 }}
+    {{- toYaml .Values.nodes.resources | nindent 4 }}
   jvmOptions:
-    -Xms: {{ .Values.controller.jvm.heap | quote }}
-    -Xmx: {{ .Values.controller.jvm.heap | quote }}
+    -Xms: {{ .Values.nodes.jvm.heap | quote }}
+    -Xmx: {{ .Values.nodes.jvm.heap | quote }}
   {{- if or .Values.tolerations .Values.kafka.rack }}
   template:
     pod:
@@ -38,6 +41,6 @@ spec:
           labelSelector:
             matchLabels:
               strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
-              strimzi.io/pool-name: controller
+              strimzi.io/pool-name: kafka
       {{- end }}
   {{- end }}

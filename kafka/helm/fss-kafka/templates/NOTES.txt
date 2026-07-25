@@ -1,6 +1,6 @@
 fss-kafka installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
 
-Cluster: {{ include "fss-kafka.name" . }}  |  brokers: {{ .Values.broker.replicas }}  controllers: {{ .Values.controller.replicas }}
+Cluster: {{ include "fss-kafka.name" . }}  |  dual-role nodes: {{ .Values.nodes.replicas }} (controller+broker)
 
 1) The Strimzi operator must be running in this namespace. Verify:
    kubectl -n {{ .Release.Namespace }} get deploy strimzi-cluster-operator

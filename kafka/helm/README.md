@@ -11,8 +11,10 @@ Toàn bộ triển khai qua **Helm**, không dùng file YAML thô. Gồm **2 Hel
 ## Topology HA
 | Thành phần | Replicas | Chịu lỗi |
 |---|---|---|
-| controller (KRaft quorum) | 3 | mất 1 controller → không downtime metadata |
-| broker (data plane) | 3 | mất 1 broker → 0 mất dữ liệu (RF=3, ISR=2, **producer acks=all**) |
+| dual-role node (controller+broker) | 3 | mất 1 node → còn quorum 2/3 + RF=3 → 0 mất dữ liệu (ISR=2, **producer acks=all**) |
+
+Mỗi node đóng cả 2 vai trò KRaft (controller quorum) và broker (data). 3 pod, 1/node —
+hợp cluster nhỏ. Có ≥6 node worker riêng thì cân nhắc tách dedicated (2 pool).
 
 HA đến từ 4 lớp: replication (RF=3, min.insync=2, no unclean election) · rack awareness
 (replica trải 3 zone) · topology spread (`DoNotSchedule`, 1 pod/zone) · PDB (`maxUnavailable=1`).
@@ -81,7 +83,9 @@ thế yêu cầu operator trước, CR sau. Đây là ràng buộc thật, khôn
 ## Values quan trọng (`fss-kafka/values.yaml`)
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
-| `broker.replicas`/`controller.replicas` | 3/3 | quy mô HA |
+| `nodes.replicas` | 3 | số node dual-role (quy mô HA) |
+| `nodes.storage.size` | 10Gi | phải < disk trống Longhorn mỗi node |
+| `tolerations` | control-plane | cho phép chạy trên control-plane (cluster 3-node) |
 | `kafka.config.min.insync.replicas` | 2 | cần producer acks=all mới có tác dụng |
 | `kafka.rack` | `{topologyKey: ...zone}` | `null` để tắt (dev/single-zone) |
 | `kafka.authorization` | `{type: simple}` | `null` để tắt ACL (dev) |
