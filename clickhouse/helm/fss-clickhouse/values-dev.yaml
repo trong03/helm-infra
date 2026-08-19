@@ -1,0 +1,30 @@
+# Dev overlay: sizing nhỏ, no NetworkPolicy, SC sẵn có. KHÔNG dùng cho prod.
+# Vẫn giữ keeper.replicas=3 + clickhouse.replicasCount=2 vì đó là điều kiện HA tối thiểu;
+# hạ xuống 1 chỉ hợp smoke-test và MẤT tính HA.
+storage:
+  create: false
+  className: standard        # đổi theo SC dev sẵn có
+
+keeper:
+  replicas: 3
+  storage:
+    size: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+clickhouse:
+  shardsCount: 1
+  replicasCount: 2
+  storage:
+    dataSize: 5Gi
+    logSize: 1Gi
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 2Gi }
+
+networkPolicy:
+  enabled: false
+
+# Dev có thể tạm bỏ auth mạnh, nhưng vẫn KHÔNG hardcode — để rỗng dùng user 'default' operator-managed.
+users: []

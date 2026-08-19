@@ -89,7 +89,9 @@ thế yêu cầu operator trước, CR sau. Đây là ràng buộc thật, khôn
 | `kafka.config.min.insync.replicas` | 2 | cần producer acks=all mới có tác dụng |
 | `kafka.rack` | `{topologyKey: ...zone}` | `null` để tắt (dev/single-zone) |
 | `kafka.authorization` | `{type: simple}` | `null` để tắt ACL (dev) |
-| `listeners` | TLS+mTLS 9093 | override plain cho dev |
+| `listeners` | TLS+mTLS 9093 (internal) + 9094 (loadbalancer) | override plain cho dev |
+| `externalListener.enabled` | `true` | bật external listener loadbalancer |
+| `externalListener.bootstrapIP` / `brokerIPs` | `""` / `[]` | IP cố định trong dải MetalLB pool; trống -> MetalLB tự cấp |
 | `storage.create` / `storage.className` | `true` / `kafka-ssd` | chart tạo SC Longhorn |
 | `networkPolicy.enabled` | `true` | default-deny + allow client namespace |
 | `topics` / `users` | ví dụ | khai báo declaratively |
@@ -119,6 +121,18 @@ kubectl -n kafka get secret app-orders-producer      -o jsonpath='{.data.user\.c
 kubectl -n kafka get secret app-orders-producer      -o jsonpath='{.data.user\.key}' | base64 -d > user.key
 # Bootstrap nội bộ: fss-kafka-kafka-bootstrap.kafka.svc:9093
 ```
+
+## External access (LoadBalancer 9094)
+Kafka KHÔNG phải HTTP — client dùng `host:port` (bootstrap), không phải web URL.
+```bash
+# Xem IP LB đã cấp (1 bootstrap + 3 broker):
+kubectl -n kafka get svc -l strimzi.io/cluster=fss-kafka | grep -i loadbalancer
+# Bootstrap external (địa chỉ đưa cho client ngoài): <bootstrapIP>:9094
+# Client vẫn cần mTLS: import ca.crt (truststore) + user.crt/user.key (keystore).
+# Strimzi tự thêm SAN cho IP external -> TLS handshake khớp, không phải sửa SAN tay.
+```
+⚠️ Fintech: giữ TLS+mTLS+ACL trên external listener; firewall/NetworkPolicy giới hạn IP nguồn
+tới 4 IP LB; KHÔNG bơm dữ liệu khách hàng thật để test (dùng synthetic). Draft cần human review.
 
 ## Yêu cầu phía client (BẮT BUỘC để HA có nghĩa)
 `min.insync.replicas=2` chỉ chống mất dữ liệu khi producer chờ đủ replica ack:

@@ -33,12 +33,71 @@ kafka:
     maxUnavailable: 1
 
 listeners:
+  # Internal (trong cluster) — app chạy trong K8s dùng listener này. GIỮ NGUYÊN.
   - name: tls
     port: 9093
     type: internal
     tls: true
     authentication:
       type: tls
+
+  # TEST-ONLY: plaintext internal (KHÔNG TLS, KHÔNG auth) để test nhanh trong
+  # cluster mà không cần cert. CHỈ dùng dev/test — GỠ trước khi lên prod (fintech).
+  # Bật/tắt qua .Values.testListener.enabled (mặc định false). Chỉ reachable trong cluster.
+
+  # External (ngoài cluster) qua LoadBalancer (MetalLB / cloud LB).
+  # Strimzi tạo 4 Service LoadBalancer: 1 bootstrap + 3 per-broker (mỗi broker 1 IP
+  # riêng — bắt buộc, client phải nối thẳng tới broker giữ leader).
+  # GIỮ TLS + mTLS: fintech không plaintext; ACL deny-by-default vẫn áp.
+  # IP cố định lấy từ externalListener.* bên dưới (do template kafka.yaml chèn vào).
+  - name: external
+    port: 9094
+    type: loadbalancer
+    tls: true
+    authentication:
+      type: tls
+
+  # External qua NodePort — dùng khi KHÔNG có LoadBalancer provider (chưa có MetalLB/cloud LB).
+  # Strimzi mở 1 NodePort bootstrap + 1 NodePort mỗi broker trên MỌI node (dải 30000-32767),
+  # client ngoài nối tới <IP-node>:<nodePort>. GIỮ TLS + mTLS (fintech: không plaintext ra ngoài).
+  # NetworkPolicy phải mở cho dải client -> đặt networkPolicy.externalNodePortCIDRs bên dưới.
+  - name: extnp
+    port: 9095
+    type: nodeport
+    tls: true
+    authentication:
+      type: tls
+    # configuration:
+    #   # Giữ IP client thật (ipBlock NetworkPolicy khớp chính xác). Chỉ node có broker pod mới
+    #   # trả lời — 2-3 node đều có broker thì OK. Bỏ dòng này = Cluster (SNAT thành IP node).
+    #   externalTrafficPolicy: Local
+    #   bootstrap:
+    #     nodePort: 32100                 # pin nodePort (mặc định Strimzi tự cấp)
+    #   brokers:
+    #     # advertisedHost: IP/hostname client dùng để nối, nếu InternalIP node không reachable
+    #     # từ ngoài (VD client nối qua floating/public IP). Đúng thứ tự broker 0,1,2.
+    #     - broker: 0
+    #       advertisedHost: "10.0.0.11"
+    #       nodePort: 32000
+    #     - broker: 1
+    #       advertisedHost: "10.0.0.12"
+    #       nodePort: 32001
+    #     - broker: 2
+    #       advertisedHost: "10.0.0.13"
+    #       nodePort: 32002
+
+# IP cố định cho external listener (nằm TRONG dải IPAddressPool của MetalLB).
+# Bỏ trống (enabled: false hoặc IP rỗng) -> MetalLB tự cấp IP động.
+# Điền IP thật để cố định, dễ whitelist firewall + trỏ DNS.
+externalListener:
+  enabled: false           # BẬT lại (true) khi đã có IP pool MetalLB, nếu không Service LB kẹt <pending>
+  bootstrapIP: ""          # ví dụ 10.x.x.240
+  brokerIPs: []            # ví dụ ["10.x.x.241","10.x.x.242","10.x.x.243"] — đúng thứ tự broker 0,1,2
+
+# TEST-ONLY listener plaintext 9092 (internal, không TLS/auth). Bật để test nhanh
+# trong cluster, TẮT (false) trước khi lên prod. Chỉ reachable trong cluster.
+testListener:
+  enabled: true
 
 # Dual-role: mỗi node vừa controller vừa broker. replicas=3 -> 3 pod, 1/node.
 # Sizing hạ cho cluster 3-node kiêm control-plane. Prod thật cần worker riêng, RAM/disk lớn hơn.
@@ -78,6 +137,12 @@ networkPolicy:
   enabled: true
   clientNamespaceLabel: kafka-client
   clientNamespaceValue: "true"
+  # Dải CIDR được phép nối tới listener NodePort external từ NGOÀI cluster.
+  # Traffic NodePort vào pod: externalTrafficPolicy=Cluster (mặc định) SNAT nguồn thành IP node
+  #   -> cần cho phép dải NODE/POD network. Đặt externalTrafficPolicy=Local (trong listener extnp)
+  #   giữ IP client thật -> để đúng dải client subnet ở đây.
+  # KHÔNG để 0.0.0.0/0 ở prod. Rỗng = không mở -> NodePort bị default-deny chặn.
+  externalNodePortCIDRs: []   # ví dụ ["10.0.0.0/24"]
 
 topics:
   - name: orders-events

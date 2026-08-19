@@ -1,0 +1,57 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $name := include "fss-rabbitmq.name" . -}}
+# 1) Default-deny mọi ingress trong namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-default-deny-ingress
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# 2) BẮT BUỘC: cho phép traffic NỘI CỤM giữa các node RabbitMQ.
+#    Không có rule này -> default-deny chặn epmd(4369)+inter-node(25672) -> cluster KHÔNG hình thành.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-intra-cluster
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "fss-rabbitmq.podSelector" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "fss-rabbitmq.podSelector" . | nindent 14 }}
+---
+# 3) Cho phép client (namespace có nhãn) nối AMQP. Fintech: ưu tiên 5671 (TLS).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-clients
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "fss-rabbitmq.podSelector" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.clientNamespaceLabel }}: {{ .Values.networkPolicy.clientNamespaceValue | quote }}
+      ports:
+        - { protocol: TCP, port: 5672 }   # AMQP
+        - { protocol: TCP, port: 5671 }   # AMQPS (TLS)
+        {{- if .Values.networkPolicy.allowManagementFromClients }}
+        - { protocol: TCP, port: 15672 }  # management HTTP
+        - { protocol: TCP, port: 15671 }  # management HTTPS
+        {{- end }}
+{{- end }}

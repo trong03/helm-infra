@@ -1,0 +1,18 @@
+# Dev overlay: KHÔNG TLS, không tạo SC (dùng SC sẵn có), sizing nhỏ. KHÔNG dùng cho prod.
+tls:
+  enabled: false
+
+storage:
+  create: false
+  className: standard      # đổi theo SC dev sẵn có của cluster
+
+nodes:
+  replicas: 3              # giữ 3 để quorum queue hoạt động; 1 chỉ hợp smoke test rất hạn chế
+  storage:
+    size: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+networkPolicy:
+  enabled: false

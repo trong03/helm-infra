@@ -1,0 +1,8 @@
+apiVersion: v2
+name: fss-clickhouse
+version: 0.1.0
+appVersion: "25.3"
+type: application
+description: HA ClickHouse cluster (Altinity clickhouse-operator) — ClickHouseKeeper (Raft) + ClickHouseInstallation with replicated shards, StorageClass, NetworkPolicy, PDB. Requires the clickhouse-operator installed separately.
+kubeVersion: ">=1.25.0-0"
+keywords: [clickhouse, altinity, clickhouse-keeper, replication, ha, olap]

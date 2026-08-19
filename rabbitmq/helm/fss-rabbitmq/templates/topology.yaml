@@ -1,0 +1,93 @@
+{{- $cluster := include "fss-rabbitmq.name" . -}}
+{{- $labels := include "fss-rabbitmq.labels" . -}}
+{{/*
+Messaging Topology Operator CRs. Tất cả tham chiếu cụm qua rabbitmqClusterReference.name.
+Khai báo declarative: vhost -> user -> permission -> queue -> policy.
+*/}}
+{{- range .Values.vhosts }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Vhost
+metadata:
+  name: {{ .name | trimAll "/" | default "default" | lower }}-vhost
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  name: {{ .name | quote }}
+  rabbitmqClusterReference:
+    name: {{ $cluster }}
+{{- end }}
+
+{{- range .Values.users }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  {{- with .tags }}
+  tags:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rabbitmqClusterReference:
+    name: {{ $cluster }}
+{{- end }}
+
+{{- range .Values.permissions }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: {{ .user }}-{{ .vhost | trimAll "/" | default "default" | lower }}-perm
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  user: {{ .user }}
+  vhost: {{ .vhost | quote }}
+  permissions:
+    configure: {{ .configure | default "^$" | quote }}
+    write: {{ .write | default "^$" | quote }}
+    read: {{ .read | default "^$" | quote }}
+  rabbitmqClusterReference:
+    name: {{ $cluster }}
+{{- end }}
+
+{{- range .Values.queues }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  name: {{ .name | quote }}
+  vhost: {{ .vhost | default "/" | quote }}
+  type: {{ .type | default "quorum" | quote }}
+  durable: {{ .durable | default true }}
+  autoDelete: {{ .autoDelete | default false }}
+  rabbitmqClusterReference:
+    name: {{ $cluster }}
+{{- end }}
+
+{{- range .Values.policies }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Policy
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- $labels | nindent 4 }}
+spec:
+  name: {{ .name | quote }}
+  vhost: {{ .vhost | default "/" | quote }}
+  pattern: {{ .pattern | quote }}
+  applyTo: {{ .applyTo | default "queues" | quote }}
+  priority: {{ .priority | default 0 }}
+  definition:
+    {{- toYaml .definition | nindent 4 }}
+  rabbitmqClusterReference:
+    name: {{ $cluster }}
+{{- end }}

@@ -31,4 +31,34 @@ spec:
         - protocol: TCP
           port: {{ .port }}
         {{- end }}
+{{- with .Values.networkPolicy.externalNodePortCIDRs }}
+---
+# Cho phép client NGOÀI cluster nối tới listener NodePort (extnp) từ dải CIDR tin cậy.
+# NodePort không đi qua namespaceSelector được -> phải dùng ipBlock. mTLS + ACL vẫn áp ở tầng Kafka.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "fss-kafka.name" $ }}-allow-external-nodeport
+  labels:
+    {{- include "fss-kafka.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
+      strimzi.io/kind: Kafka
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        {{- range $.Values.listeners }}
+        {{- if eq .type "nodeport" }}
+        - protocol: TCP
+          port: {{ .port }}
+        {{- end }}
+        {{- end }}
+{{- end }}
 {{- end }}

@@ -1,0 +1,30 @@
+fss-clickhouse installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+CHI: {{ include "fss-clickhouse.name" . }} ({{ .Values.clickhouse.shardsCount }} shard x {{ .Values.clickhouse.replicasCount }} replica)
+CHK: {{ include "fss-clickhouse.keeperName" . }} ({{ .Values.keeper.replicas }} node Raft)
+
+1) The clickhouse-operator must be running (cluster-scoped). Verify:
+   kubectl get pods -A -l app=clickhouse-operator
+
+2) Wait for both CRs:
+   kubectl -n {{ .Release.Namespace }} wait chk/{{ include "fss-clickhouse.keeperName" . }}  --for=condition=Ready --timeout=600s
+   kubectl -n {{ .Release.Namespace }} wait chi/{{ include "fss-clickhouse.name" . }} --for=condition=Ready --timeout=600s
+
+3) Confirm the Keeper client Service name the CHI points at:
+   kubectl -n {{ .Release.Namespace }} get svc | grep keeper
+   (CHI zookeeper.host = {{ .Values.keeper.serviceHost | default (printf "keeper-%s" (include "fss-clickhouse.keeperName" .)) }})
+
+4) Internal HTTP endpoint (CH cluster service):
+   clickhouse-{{ include "fss-clickhouse.name" . }}.{{ .Release.Namespace }}.svc:8123
+
+{{- if .Values.users }}
+
+5) App user password Secret (create BEFORE install, holds password_sha256_hex — NOT plaintext):
+   {{- range .Values.users }}{{ with .passwordSecret }}
+   kubectl -n {{ $.Release.Namespace }} create secret generic {{ .name }} \
+     --from-literal={{ .key }}=$(echo -n 'CHANGEME' | sha256sum | cut -d' ' -f1)
+   {{- end }}{{- end }}
+{{- end }}
+
+6) HA reminder: create tables as ReplicatedMergeTree ON CLUSTER '{{ .Values.clickhouse.clusterName }}'.
+   Plain MergeTree does NOT replicate -> data loss when a replica dies. Keep keeper.replicas ODD.

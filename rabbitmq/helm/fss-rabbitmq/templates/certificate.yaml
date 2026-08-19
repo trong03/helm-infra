@@ -1,0 +1,31 @@
+{{- if and .Values.tls.enabled .Values.tls.certManager.enabled }}
+{{- $name := include "fss-rabbitmq.name" . -}}
+# cert-manager Certificate cấp Secret kiểu TLS cho RabbitmqCluster.
+# Operator KHÔNG tự sinh cert (khác Strimzi) -> đây là nguồn cert declarative.
+# SAN nội cluster: <name>, <name>.<ns>, <name>.<ns>.svc + headless per-pod.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $name }}-server-tls
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.tls.secretName | quote }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  duration: 2160h        # 90d
+  renewBefore: 360h      # 15d
+  issuerRef:
+    name: {{ required "tls.certManager.issuerRef.name is required" .Values.tls.certManager.issuerRef.name }}
+    kind: {{ .Values.tls.certManager.issuerRef.kind }}
+  dnsNames:
+    - {{ $name }}
+    - {{ $name }}.{{ .Release.Namespace }}
+    - {{ $name }}.{{ .Release.Namespace }}.svc
+    - {{ $name }}.{{ .Release.Namespace }}.svc.cluster.local
+    - "*.{{ $name }}-nodes.{{ .Release.Namespace }}.svc.cluster.local"
+    {{- range .Values.tls.certManager.dnsNames }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,59 @@
+apiVersion: clickhouse-keeper.altinity.com/v1
+kind: ClickHouseKeeperInstallation
+metadata:
+  name: {{ include "fss-clickhouse.keeperName" . }}
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  configuration:
+    clusters:
+      - name: keeper
+        layout:
+          # Keeper ensemble = 1 shard, N replica (Raft). GIỮ LẺ.
+          replicasCount: {{ .Values.keeper.replicas }}
+    settings:
+      keeper_server/tcp_port: {{ .Values.keeper.clientPort | quote }}
+      {{- with .Values.keeper.settings }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  templates:
+    podTemplates:
+      - name: keeper-pod
+        metadata:
+          labels:
+            {{- include "fss-clickhouse.intraLabel" . | nindent 12 }}
+            fss.io/component: clickhouse-keeper
+        # 1 Keeper/node -> mất 1 node vẫn còn quorum. topologyKey = hostname (on-prem không zone).
+        podDistribution:
+          - type: ShardAntiAffinity
+          - type: MaxNumberPerNode
+            number: 1
+            topologyKey: {{ .Values.antiAffinityTopologyKey | quote }}
+        spec:
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.keeper.podSecurityContext | nindent 12 }}
+          containers:
+            - name: clickhouse-keeper
+              image: {{ .Values.keeper.image | quote }}
+              imagePullPolicy: IfNotPresent
+              # Mount TƯỜNG MINH: Raft log+snapshot PHẢI persist. Không có -> mất state khi restart.
+              volumeMounts:
+                - name: data-volume
+                  mountPath: /var/lib/clickhouse-keeper
+              resources:
+                {{- toYaml .Values.keeper.resources | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.keeper.containerSecurityContext | nindent 16 }}
+    volumeClaimTemplates:
+      - name: data-volume
+        reclaimPolicy: Retain
+        spec:
+          accessModes: [ReadWriteOnce]
+          storageClassName: {{ .Values.storage.className | quote }}
+          resources:
+            requests:
+              storage: {{ .Values.keeper.storage.size | quote }}

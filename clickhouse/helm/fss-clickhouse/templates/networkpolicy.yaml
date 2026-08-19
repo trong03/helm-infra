@@ -1,0 +1,54 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $name := include "fss-clickhouse.name" . -}}
+# 1) Default-deny mọi ingress trong namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-default-deny-ingress
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# 2) BẮT BUỘC: traffic NỘI CỤM (CH<->CH interserver 9009/9000, CH<->Keeper 2181,
+#    Keeper<->Keeper raft 9234). Thiếu rule này -> default-deny chặn replication + Raft.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-intra-cluster
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "fss-clickhouse.intraLabel" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "fss-clickhouse.intraLabel" . | nindent 14 }}
+---
+# 3) Client (namespace có nhãn) -> CHỈ tới CH server: 8123 (HTTP) + 9000 (native TCP).
+#    Keeper KHÔNG mở ra client.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-allow-clients
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      fss.io/component: clickhouse-server
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{ .Values.networkPolicy.clientNamespaceLabel }}: {{ .Values.networkPolicy.clientNamespaceValue | quote }}
+      ports:
+        - { protocol: TCP, port: 8123 }   # HTTP
+        - { protocol: TCP, port: 9000 }   # native TCP
+{{- end }}

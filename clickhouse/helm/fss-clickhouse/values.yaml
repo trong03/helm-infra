@@ -1,0 +1,111 @@
+# ============================================================================
+# fss-clickhouse — HA ClickHouse qua Altinity clickhouse-operator.
+# HA = ReplicatedMergeTree (replicasCount>=2) + ClickHouse KEEPER (Raft, 3 node) điều phối.
+# Operator (release riêng) PHẢI cài sẵn — xem helm/README.md. Chart này tạo CHK + CHI + phụ trợ.
+# ============================================================================
+
+cluster:
+  name: fss-clickhouse          # tên ClickHouseInstallation (CHI)
+
+# --------------------------------------------------------------------------
+# ClickHouse Keeper — ensemble Raft điều phối replication/metadata (thay ZooKeeper).
+# replicas LẺ (3/5) cho quorum. Mất Keeper quorum -> replication dừng -> BẮT BUỘC HA đúng.
+# --------------------------------------------------------------------------
+keeper:
+  name: fss-keeper
+  replicas: 3                   # LẺ. 3 chịu mất 1; 5 chịu mất 2.
+  clientPort: 2181
+  image: "clickhouse/clickhouse-keeper:25.3"   # prod: pin theo digest đã verify
+  # Service client do operator tạo. Mặc định "keeper-<keeper.name>". VERIFY: kubectl get svc | grep keeper
+  serviceHost: ""               # để trống -> tự suy ra "keeper-fss-keeper"
+  storage:
+    size: 10Gi                  # Raft log + snapshot; đừng để quá nhỏ ở prod
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  settings: {}                  # thêm keeper_server/* nếu cần
+  podSecurityContext:           # PSS restricted (uid clickhouse=101)
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile: { type: RuntimeDefault }
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities: { drop: ["ALL"] }
+
+# --------------------------------------------------------------------------
+# ClickHouse server cluster. HA thật sự đến từ replicasCount>=2 + bảng ReplicatedMergeTree.
+# --------------------------------------------------------------------------
+clickhouse:
+  clusterName: fss              # tên cluster logic trong CHI (dùng trong DDL ON CLUSTER 'fss')
+  shardsCount: 1                # phân vùng ngang (scale-out). 1 = chưa shard.
+  replicasCount: 2              # >=2 để HA. Mỗi replica 1 node (ReplicaAntiAffinity).
+  maxPerNode: 1                 # tối đa 1 CH pod/node -> replicasCount <= số node schedulable
+  image: "clickhouse/clickhouse-server:25.3"   # prod: pin theo digest; version KHỚP keeper
+  storage:
+    dataSize: 20Gi              # < disk trống Longhorn mỗi node (numberOfReplicas=1)
+    logSize: 2Gi
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "2",  memory: 4Gi }
+  settings: {}                  # rabbit config server-level, ví dụ: max_concurrent_queries: 100
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile: { type: RuntimeDefault }
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities: { drop: ["ALL"] }
+
+# On-prem KHÔNG có label zone -> trải theo NODE (hostname). Có zone thật -> đổi
+# topology.kubernetes.io/zone. Dùng cho podDistribution MaxNumberPerNode của cả CH lẫn Keeper.
+antiAffinityTopologyKey: kubernetes.io/hostname
+
+# Cho phép pod chạy trên node control-plane (cluster 3-node, 2 node là control-plane).
+# Có worker riêng đủ 3+ node thì đặt tolerations: [] để KHÔNG chạy trên control-plane.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+storage:
+  className: clickhouse-ssd
+  create: true          # chart tự tạo SC Longhorn. Nếu đã tồn tại: kubectl delete sc clickhouse-ssd trước.
+  provisioner: driver.longhorn.io
+  volumeBindingMode: WaitForFirstConsumer
+  allowVolumeExpansion: true
+  reclaimPolicy: Retain
+  parameters:
+    numberOfReplicas: "1"     # ClickHouse replication lo durability; tránh replication kép
+    dataLocality: best-effort
+    fsType: ext4
+
+# PDB cho cả CH và Keeper (operator KHÔNG tự tạo). maxUnavailable=1 giữ quorum/replica khi drain.
+pdb:
+  enabled: true
+  maxUnavailable: 1
+
+networkPolicy:
+  enabled: true
+  clientNamespaceLabel: clickhouse-client
+  clientNamespaceValue: "true"
+
+# --------------------------------------------------------------------------
+# Users declarative (CHI configuration.users). KHÔNG hardcode mật khẩu.
+# passwordSecret trỏ tới Secret chứa password_sha256_hex (tự tạo trước, xem README).
+# Operator tự quản user 'default' + 'clickhouse_operator' — KHÔNG khai báo lại ở đây.
+# --------------------------------------------------------------------------
+users:
+  - name: app_helios
+    profile: default
+    networks:                  # chỉ cho subnet nội bộ; KHÔNG "::/0"
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+    passwordSecret:
+      name: clickhouse-app-helios
+      key: password_sha256_hex

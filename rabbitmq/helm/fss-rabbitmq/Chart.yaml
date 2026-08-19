@@ -1,0 +1,8 @@
+apiVersion: v2
+name: fss-rabbitmq
+version: 0.1.0
+appVersion: "4.1"
+type: application
+description: HA RabbitMQ cluster (RabbitMQ Cluster Operator + Messaging Topology Operator) — quorum queues, vhosts, users, policies, StorageClass, NetworkPolicy, PDB. Requires both operators installed separately.
+kubeVersion: ">=1.25.0-0"
+keywords: [rabbitmq, cluster-operator, quorum-queues, ha, amqp]

@@ -1,0 +1,59 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: {{ include "fss-rabbitmq.name" . }}
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.nodes.replicas }}
+  {{- with .Values.rabbitmq.image }}
+  image: {{ . | quote }}
+  {{- end }}
+  resources:
+    {{- toYaml .Values.nodes.resources | nindent 4 }}
+  persistence:
+    storageClassName: {{ required "storage.className is required" .Values.storage.className | quote }}
+    storage: {{ .Values.nodes.storage.size | quote }}
+  rabbitmq:
+    additionalConfig: |
+      {{- range $k, $v := .Values.rabbitmq.additionalConfig }}
+      {{ $k }} = {{ $v }}
+      {{- end }}
+    {{- with .Values.rabbitmq.additionalPlugins }}
+    additionalPlugins:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- if .Values.tls.enabled }}
+  tls:
+    secretName: {{ required "tls.secretName is required when tls.enabled=true" .Values.tls.secretName | quote }}
+    {{- with .Values.tls.caSecretName }}
+    caSecretName: {{ . | quote }}
+    {{- end }}
+    disableNonTLSListeners: {{ .Values.tls.disableNonTLSListeners }}
+  {{- end }}
+  # Anti-affinity CỨNG: mỗi pod một node -> mất 1 node vẫn còn quorum (2/3). On-prem dùng hostname.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: {{ .Values.nodes.antiAffinityTopologyKey | quote }}
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - {{ include "fss-rabbitmq.name" . }}
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.nodes.topologySpreadConstraints }}
+  # topologySpread chỉ đi qua override.statefulSet (RabbitmqCluster spec không có field này trực tiếp).
+  override:
+    statefulSet:
+      spec:
+        template:
+          spec:
+            containers: []
+            topologySpreadConstraints:
+              {{- toYaml . | nindent 14 }}
+  {{- end }}

@@ -1,0 +1,95 @@
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: {{ include "fss-clickhouse.name" . }}
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  defaults:
+    # defaults.templates auto-mount: dataVolumeClaimTemplate -> /var/lib/clickhouse,
+    # logVolumeClaimTemplate -> /var/log/clickhouse-server (cơ chế chuẩn của CHI).
+    templates:
+      podTemplate: clickhouse-pod
+      dataVolumeClaimTemplate: data-volume
+      logVolumeClaimTemplate: log-volume
+    storageManagement:
+      provisioner: StatefulSet
+      reclaimPolicy: Retain
+  configuration:
+    # Trỏ tới ClickHouse Keeper (điều phối replication). Cùng namespace -> dùng tên service ngắn.
+    zookeeper:
+      nodes:
+        - host: {{ .Values.keeper.serviceHost | default (printf "keeper-%s" (include "fss-clickhouse.keeperName" .)) | quote }}
+          port: {{ .Values.keeper.clientPort }}
+    clusters:
+      - name: {{ .Values.clickhouse.clusterName | quote }}
+        layout:
+          shardsCount: {{ .Values.clickhouse.shardsCount }}
+          replicasCount: {{ .Values.clickhouse.replicasCount }}
+    {{- with .Values.clickhouse.settings }}
+    settings:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- if .Values.users }}
+    # Dotted-key style của Altinity. Mật khẩu lấy từ Secret (password_sha256_hex), KHÔNG hardcode.
+    users:
+      {{- range .Values.users }}
+      {{- $u := . }}
+      {{ $u.name }}/profile: {{ $u.profile | default "default" | quote }}
+      {{ $u.name }}/networks/ip:
+        {{- range $u.networks }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- with $u.passwordSecret }}
+      {{ $u.name }}/password_sha256_hex/valueFrom:
+        secretKeyRef:
+          name: {{ .name }}
+          key: {{ .key }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+  templates:
+    podTemplates:
+      - name: clickhouse-pod
+        metadata:
+          labels:
+            {{- include "fss-clickhouse.intraLabel" . | nindent 12 }}
+            fss.io/component: clickhouse-server
+        # ReplicaAntiAffinity: các replica của cùng 1 shard PHẢI ở node khác nhau -> HA.
+        podDistribution:
+          - type: ReplicaAntiAffinity
+          - type: MaxNumberPerNode
+            number: {{ .Values.clickhouse.maxPerNode }}
+            topologyKey: {{ .Values.antiAffinityTopologyKey | quote }}
+        spec:
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.clickhouse.podSecurityContext | nindent 12 }}
+          containers:
+            - name: clickhouse
+              image: {{ .Values.clickhouse.image | quote }}
+              imagePullPolicy: IfNotPresent
+              resources:
+                {{- toYaml .Values.clickhouse.resources | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.clickhouse.containerSecurityContext | nindent 16 }}
+    volumeClaimTemplates:
+      - name: data-volume
+        reclaimPolicy: Retain
+        spec:
+          accessModes: [ReadWriteOnce]
+          storageClassName: {{ .Values.storage.className | quote }}
+          resources:
+            requests:
+              storage: {{ .Values.clickhouse.storage.dataSize | quote }}
+      - name: log-volume
+        reclaimPolicy: Retain
+        spec:
+          accessModes: [ReadWriteOnce]
+          storageClassName: {{ .Values.storage.className | quote }}
+          resources:
+            requests:
+              storage: {{ .Values.clickhouse.storage.logSize | quote }}

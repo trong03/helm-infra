@@ -15,7 +15,46 @@ spec:
     {{- end }}
     # replicas & storage come from KafkaNodePool CRs, not here.
     listeners:
-      {{- toYaml .Values.listeners | nindent 6 }}
+      {{- range .Values.listeners }}
+      {{- if eq .type "loadbalancer" }}
+      {{- if $.Values.externalListener.enabled }}
+      {{- if or $.Values.externalListener.bootstrapIP $.Values.externalListener.brokerIPs }}
+      # LoadBalancer listener + IP cố định (MetalLB/cloud LB) từ .Values.externalListener
+      - name: {{ .name }}
+        port: {{ .port }}
+        type: {{ .type }}
+        tls: {{ .tls }}
+        {{- with .authentication }}
+        authentication:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        configuration:
+          {{- with $.Values.externalListener.bootstrapIP }}
+          bootstrap:
+            loadBalancerIP: {{ . | quote }}
+          {{- end }}
+          {{- if $.Values.externalListener.brokerIPs }}
+          brokers:
+            {{- range $i, $ip := $.Values.externalListener.brokerIPs }}
+            - broker: {{ $i }}
+              loadBalancerIP: {{ $ip | quote }}
+            {{- end }}
+          {{- end }}
+      {{- else }}
+      {{- toYaml (list .) | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- else }}
+      {{- toYaml (list .) | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.testListener.enabled }}
+      # TEST-ONLY plaintext listener — GỠ trước prod
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      {{- end }}
     {{- with .Values.kafka.rack }}
     rack:
       {{- toYaml . | nindent 6 }}

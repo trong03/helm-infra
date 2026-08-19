@@ -1,0 +1,14 @@
+{{- if .Values.pdb.enabled }}
+# Cluster Operator KHÔNG tự tạo PDB -> chart tạo. Giữ quorum khi drain/upgrade node.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "fss-rabbitmq.name" . }}
+  labels:
+    {{- include "fss-rabbitmq.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "fss-rabbitmq.podSelector" . | nindent 6 }}
+{{- end }}

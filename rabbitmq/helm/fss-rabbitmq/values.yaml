@@ -1,0 +1,122 @@
+# ============================================================================
+# fss-rabbitmq — HA RabbitMQ qua RabbitMQ Cluster Operator (+ Messaging Topology Operator).
+# HAI operator PHẢI cài sẵn (xem helm/README.md). Chart này CHỈ tạo CR + tài nguyên phụ.
+# HA = QUORUM QUEUES (Raft) — cần replicas LẺ (3/5/7) để có quorum, giống KRaft controller.
+# ============================================================================
+
+cluster:
+  name: fss-rabbitmq
+
+# Image RabbitMQ. Để TRỐNG -> operator dùng image mặc định đã test khớp version của nó
+# (an toàn, reproducible nhất). Prod fintech: pin theo DIGEST đã verify, tránh tag trôi.
+rabbitmq:
+  image: ""            # ví dụ: rabbitmq:4.1.4-management  (verify tag tồn tại cho version operator)
+
+  # rabbitmq.conf bổ sung. Đây là phần cốt lõi của HA + an toàn split-brain.
+  additionalConfig:
+    cluster_partition_handling: pause_minority   # mất quorum -> minority TỰ DỪNG (không split-brain)
+    default_queue_type: quorum                   # queue tạo mới mặc định là quorum (RabbitMQ 3.13+/4.x)
+    disk_free_limit.relative: "1.5"              # chặn publish khi disk thấp (bội số RAM)
+
+  additionalPlugins:
+    - rabbitmq_management
+    - rabbitmq_prometheus
+
+# TLS. Fintech PROD: BẮT BUỘC bật. Operator KHÔNG tự sinh cert (khác Strimzi) -> phải cấp
+# Secret qua cert-manager (xem certificate.yaml + README). Mặc định tắt để test nhanh nội cluster.
+tls:
+  enabled: false
+  secretName: fss-rabbitmq-server-tls   # Secret kiểu kubernetes.io/tls (tls.crt/tls.key)
+  caSecretName: ""                       # Secret chứa ca.crt -> bật khi cần verify client (mTLS)
+  disableNonTLSListeners: false          # true = CHỈ cho TLS (đặt true ở prod)
+  certManager:
+    enabled: false                       # true -> chart tạo cert-manager Certificate cấp secretName
+    issuerRef:
+      name: ""                           # tên (Cluster)Issuer đã có
+      kind: ClusterIssuer                # hoặc Issuer
+    dnsNames: []                         # SAN thêm cho truy cập ngoài; nội cluster tự thêm svc DNS
+
+# replicas LẺ cho Raft quorum (quorum queue + Khepri metadata). 3 pod, 1/node.
+# Sizing hạ cho cluster 3-node kiêm control-plane. Prod thật: worker riêng, RAM/disk lớn hơn.
+nodes:
+  replicas: 3
+  storage:
+    size: 8Gi           # < disk trống Longhorn mỗi node (numberOfReplicas=1)
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  # On-prem KHÔNG có label zone -> trải theo NODE (hostname). Có zone thật -> đổi sang
+  # topology.kubernetes.io/zone. Đây là anti-affinity CỨNG: 1 pod/node, mất 1 node vẫn còn quorum.
+  antiAffinityTopologyKey: kubernetes.io/hostname
+  # Để RỖNG trên on-prem không zone (nếu điền zone mà node chưa gán label -> pod Pending).
+  # Có zone thật thì set: [{ maxSkew: 1, topologyKey: topology.kubernetes.io/zone,
+  #   whenUnsatisfiable: DoNotSchedule, labelSelector: { matchLabels: { app.kubernetes.io/name: fss-rabbitmq }}}]
+  topologySpreadConstraints: []
+
+# PDB: Cluster Operator KHÔNG tự tạo -> chart tạo. maxUnavailable=1 giữ quorum khi drain node.
+pdb:
+  enabled: true
+  maxUnavailable: 1
+
+storage:
+  className: rabbitmq-ssd
+  create: true          # chart tự tạo SC Longhorn. Nếu SC đã tồn tại: kubectl delete sc rabbitmq-ssd trước.
+  provisioner: driver.longhorn.io
+  volumeBindingMode: WaitForFirstConsumer
+  allowVolumeExpansion: true
+  reclaimPolicy: Retain
+  parameters:
+    numberOfReplicas: "1"     # quorum queue lo durability ở tầng app; tránh replication kép
+    dataLocality: best-effort
+    fsType: ext4
+
+# Cho phép pod chạy trên node control-plane (cluster 3-node, 2 node là control-plane).
+# Có worker riêng đủ 3+ node thì đặt tolerations: [] để KHÔNG chạy trên control-plane.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+networkPolicy:
+  enabled: true
+  clientNamespaceLabel: rabbitmq-client
+  clientNamespaceValue: "true"
+  allowManagementFromClients: false   # true -> mở 15671/15672 cho client namespace (thường chỉ nội bộ)
+
+# ---------------------------------------------------------------------------
+# Topology declarative (Messaging Topology Operator). Tách quyền theo vhost/user.
+# User -> operator tự sinh Secret "<user-name>-user-credentials" (username/password).
+# KHÔNG hardcode mật khẩu ở đây.
+# ---------------------------------------------------------------------------
+vhosts:
+  - name: /fss
+
+users:
+  - name: app-orders
+    tags: []                     # rỗng = user thường (không management UI). Quyền cấp qua permissions.
+    # Secret sinh ra: app-orders-user-credentials  (mount vào app pod, xem README)
+
+permissions:
+  - user: app-orders
+    vhost: /fss
+    # regex scope. App orders chỉ thao tác resource tiền tố "orders-". read/write, không configure.
+    configure: "^$"
+    write: "^orders-.*"
+    read: "^orders-.*"
+
+queues:
+  - name: orders-events
+    vhost: /fss
+    type: quorum               # HA queue (Raft, nhân bản qua các node)
+    durable: true
+    autoDelete: false
+
+policies: []
+# ví dụ (quorum queue tự nhân bản; policy dưới đây minh hoạ TTL/DLX, KHÔNG phải HA mirror cũ):
+#  - name: orders-ttl
+#    vhost: /fss
+#    pattern: "^orders-"
+#    applyTo: queues
+#    priority: 1
+#    definition:
+#      message-ttl: 604800000
