@@ -36,4 +36,8 @@ nodes:
 networkPolicy:
   enabled: false
 
+# Tắt test listener 9092 — dev đã có plain/9093 riêng; để bật sẽ TRÙNG TÊN `plain` -> invalid.
+testListener:
+  enabled: false
+
 users: []
