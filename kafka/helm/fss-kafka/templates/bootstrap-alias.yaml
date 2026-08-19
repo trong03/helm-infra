@@ -1,0 +1,20 @@
+{{- with .Values.bootstrapAlias }}
+# Alias bootstrap: client nối `{{ . }}:9093` từ mọi namespace thay cho tên Strimzi dài.
+# Chỉ phục vụ bootstrap; sau đó client dùng địa chỉ per-broker Strimzi advertise (DNS nội cluster).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ . }}
+  labels:
+    {{- include "fss-kafka.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
+    strimzi.io/kind: Kafka
+  ports:
+    - name: kafka
+      port: 9093
+      targetPort: 9093
+      protocol: TCP
+{{- end }}

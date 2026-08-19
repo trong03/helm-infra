@@ -15,9 +15,13 @@ kafka:
 # Plain internal listener (no TLS/mTLS) for quick local testing.
 listeners:
   - name: plain
-    port: 9092
+    port: 9093
     type: internal
     tls: false
+
+# Alias Service để pod bất kỳ (mọi ns) nối gọn `fss-kafka:9093`.
+# Strimzi đặt tên bootstrap là `fss-kafka-kafka-bootstrap`; alias này tạo thêm Service trần.
+bootstrapAlias: fss-kafka
 
 nodes:
   replicas: 3

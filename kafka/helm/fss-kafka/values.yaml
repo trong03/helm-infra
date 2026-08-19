@@ -57,34 +57,10 @@ listeners:
     authentication:
       type: tls
 
-  # External qua NodePort — dùng khi KHÔNG có LoadBalancer provider (chưa có MetalLB/cloud LB).
-  # Strimzi mở 1 NodePort bootstrap + 1 NodePort mỗi broker trên MỌI node (dải 30000-32767),
-  # client ngoài nối tới <IP-node>:<nodePort>. GIỮ TLS + mTLS (fintech: không plaintext ra ngoài).
-  # NetworkPolicy phải mở cho dải client -> đặt networkPolicy.externalNodePortCIDRs bên dưới.
-  - name: extnp
-    port: 9095
-    type: nodeport
-    tls: true
-    authentication:
-      type: tls
-    # configuration:
-    #   # Giữ IP client thật (ipBlock NetworkPolicy khớp chính xác). Chỉ node có broker pod mới
-    #   # trả lời — 2-3 node đều có broker thì OK. Bỏ dòng này = Cluster (SNAT thành IP node).
-    #   externalTrafficPolicy: Local
-    #   bootstrap:
-    #     nodePort: 32100                 # pin nodePort (mặc định Strimzi tự cấp)
-    #   brokers:
-    #     # advertisedHost: IP/hostname client dùng để nối, nếu InternalIP node không reachable
-    #     # từ ngoài (VD client nối qua floating/public IP). Đúng thứ tự broker 0,1,2.
-    #     - broker: 0
-    #       advertisedHost: "10.0.0.11"
-    #       nodePort: 32000
-    #     - broker: 1
-    #       advertisedHost: "10.0.0.12"
-    #       nodePort: 32001
-    #     - broker: 2
-    #       advertisedHost: "10.0.0.13"
-    #       nodePort: 32002
+  # NodePort external: gỡ bỏ — client chạy TRONG cluster, dùng listener internal `tls` (9093)
+  # qua ClusterIP `fss-kafka-kafka-bootstrap.kafka.svc:9093`. Không expose port ra public.
+  # Khi cần truy cập từ NGOÀI cluster: thêm lại listener type nodeport (hoặc loadbalancer khi có
+  # MetalLB) + networkPolicy.externalNodePortCIDRs. Template đã hỗ trợ sẵn.
 
 # IP cố định cho external listener (nằm TRONG dải IPAddressPool của MetalLB).
 # Bỏ trống (enabled: false hoặc IP rỗng) -> MetalLB tự cấp IP động.
@@ -132,6 +108,11 @@ tolerations:
 
 entityOperator:
   enabled: true
+
+# Alias Service (ClusterIP) tên tuỳ ý trỏ tới broker, để client nối gọn `<tên>:9093`
+# thay cho `fss-kafka-kafka-bootstrap:9093`. Rỗng = tắt (mặc định). Chỉ là DNS tiện lợi —
+# KHÔNG đổi auth/TLS: prod listener vẫn mTLS nên nối qua alias vẫn cần cert.
+bootstrapAlias: ""
 
 networkPolicy:
   enabled: true
