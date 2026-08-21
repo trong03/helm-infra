@@ -350,12 +350,12 @@ topics:
     config:
       min.insync.replicas: "2"
   - name: integration.logon
-    partitions: 6
+    partitions: 1
     replicas: 3
     config:
       min.insync.replicas: "2"
   - name: integration.logon.reply
-    partitions: 6
+    partitions: 1
     replicas: 3
     config:
       min.insync.replicas: "2"

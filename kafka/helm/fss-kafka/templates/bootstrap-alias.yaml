@@ -10,8 +10,11 @@ metadata:
 spec:
   type: ClusterIP
   selector:
+    # strimzi.io/name BAT BUOC: hai label duoi con khop ca pod entity-operator (khong mo 9093),
+    # thieu no thi Service co endpoint rac -> client bootstrap bi dong ket noi ngau nhien.
     strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
     strimzi.io/kind: Kafka
+    strimzi.io/name: {{ include "fss-kafka.name" $ }}-kafka
   ports:
     - name: kafka
       port: 9093
