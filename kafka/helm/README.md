@@ -163,3 +163,44 @@ helm -n kafka rollback fss-kafka <REVISION>
 ## Điều kiện để HA thực sự "đảm bảo" (không đổi so với bản raw)
 ≥3 node ở ≥3 zone · StorageClass `WaitForFirstConsumer` · **producer acks=all** ·
 đã diễn tập xoá 1 broker. Helm chỉ đổi cách đóng gói, không thay đổi các điều kiện này.
+
+---
+
+## Kafka UI (release 3, tuỳ chọn)
+
+Dùng chart upstream `kafbat/kafka-ui` + values ở `kafka-ui/` — **không viết chart riêng**.
+Cài **trong ns `kafka`**: `secretKeyRef` không đọc được Secret ở ns khác, mà cert
+KafkaUser + cluster CA đều nằm ở ns `kafka`.
+
+```bash
+# 0. Tạo KafkaUser `kafka-ui` (đã có trong users[] của fss-kafka/values.yaml)
+helm -n kafka upgrade --install fss-kafka ./fss-kafka
+kubectl -n kafka get secret kafka-ui fss-kafka-cluster-ca-cert   # phải tồn tại trước bước 2
+
+# 1. NetworkPolicy: cho pod trong ns kafka nối tới listener 9093
+kubectl label namespace kafka kafka-client=true --overwrite
+
+# 2. Cài UI
+helm repo add kafbat https://kafbat.github.io/helm-charts && helm repo update kafbat
+helm -n kafka upgrade --install kafka-ui kafbat/kafka-ui -f kafka-ui/values.yaml
+kubectl -n kafka rollout status deploy/kafka-ui
+
+# 3. Truy cập (không ingress)
+kubectl -n kafka port-forward svc/kafka-ui 8080:80   # http://localhost:8080
+```
+
+Dev (đi với `fss-kafka/values-dev.yaml`, listener plain 9093, không TLS/ACL):
+```bash
+helm -n kafka upgrade --install kafka-ui kafbat/kafka-ui \
+  -f kafka-ui/values.yaml -f kafka-ui/values-dev.yaml
+```
+
+Mặc định đã chọn:
+- `KAFKA_CLUSTERS_0_READONLY=true` + KafkaUser chỉ có ACL đọc (2 lớp) — UI không sửa được cụm.
+- Config qua ENV `KAFKA_CLUSTERS_0_*`, **không** `yamlApplicationConfig`: Spring ghi đè list
+  `kafka.clusters` theo cả list, trộn 2 nguồn sẽ mất config.
+- `ingress.enabled=false`. **Bật ingress thì phải bật auth trước** (`AUTH_TYPE=LOGIN_FORM` +
+  `SPRING_SECURITY_USER_*` qua `envs.secretMappings`, hoặc OIDC): UI không auth = xem được
+  toàn bộ nội dung message, vi phạm yêu cầu bảo mật dữ liệu khách hàng.
+
+Gỡ: `helm -n kafka uninstall kafka-ui` (KafkaUser `kafka-ui` xoá riêng trong `users[]` nếu cần).

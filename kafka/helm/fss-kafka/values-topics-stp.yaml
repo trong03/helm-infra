@@ -1,0 +1,361 @@
+# Sinh tu D:/helm-uat/ccp/{route-service,ig-service,bridge-api-ccp} - KHONG sua tay.
+# Dung lai:  python D:/CCP/STP_KRX/gen-kafka-topics.py
+#
+# CHI topic he thong, 6 partition (khop kafka.topic.default-partitions cua route-service).
+# Topic thanh vien integration.<M>.* KHONG o day: broker tu sinh (auto.create.topics.enable
+# =true, num.partitions=1). Them thanh vien = sua com.fss.esb.list.user, khong doi file nay.
+topics:
+
+  # ---- 59 topic he thong (STP_*, IG_*, integration.logon*) ----
+  - name: ig-audit-dequeue
+    topicName: IG_AUDIT_DEQUEUE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-audit-enqueue
+    topicName: IG_AUDIT_ENQUEUE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-bank-request
+    topicName: IG_BANK_REQUEST
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-ccpbank-report
+    topicName: IG_CCPBANK_REPORT
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-ccpbank-request
+    topicName: IG_CCPBANK_REQUEST
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-confirm
+    topicName: IG_CONFIRM
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-dlq
+    topicName: IG_DLQ
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-forward2ccp
+    topicName: IG_FORWARD2CCP
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-login
+    topicName: IG_LOGIN
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-login-reply
+    topicName: IG_LOGIN_REPLY
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-logout
+    topicName: IG_LOGOUT
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-outfile
+    topicName: IG_OUTFILE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-out-bank
+    topicName: IG_OUT_BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-out-ccpbank
+    topicName: IG_OUT_CCPBANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-pretransfer
+    topicName: IG_PRETRANSFER
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-pretransfer-login
+    topicName: IG_PRETRANSFER_LOGIN
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-reply-member
+    topicName: IG_REPLY_MEMBER
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-retry-verify
+    topicName: IG_RETRY_VERIFY
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-sbv-inmessage
+    topicName: IG_SBV_INMESSAGE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-sbv-inmessage-response
+    topicName: IG_SBV_INMESSAGE_RESPONSE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-sbv-inward-csv
+    topicName: IG_SBV_INWARD_CSV
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: ig-verify-error
+    topicName: IG_VERIFY_ERROR
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-acknak-ccpbank
+    topicName: STP_ACKNAK_CCPBANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp2esb-pair1
+    topicName: STP_CCP2ESB_PAIR1
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp-ig-local
+    topicName: STP_CCP_IG_LOCAL
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp-out-response-ccpbank
+    topicName: STP_CCP_OUT_RESPONSE_CCPBANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp-request
+    topicName: STP_CCP_REQUEST
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp-request-bank
+    topicName: STP_CCP_REQUEST_BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-ccp-response
+    topicName: STP_CCP_RESPONSE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-core2all
+    topicName: STP_CORE2ALL
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-core2bank
+    topicName: STP_CORE2BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-core2ccp-new
+    topicName: STP_CORE2CCP_NEW
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-core2esb-new3
+    topicName: STP_CORE2ESB_NEW3
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-core2sbv-report
+    topicName: STP_CORE2SBV_REPORT
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-csv2sftp
+    topicName: STP_CSV2SFTP
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-csv2sftp-done
+    topicName: STP_CSV2SFTP_DONE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-dlq
+    topicName: STP_DLQ
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-dlq-bank
+    topicName: STP_DLQ_BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-esb2bank
+    topicName: STP_ESB2BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-esb2bank-other
+    topicName: STP_ESB2BANK_OTHER
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-esb2ccp-pair1
+    topicName: STP_ESB2CCP_PAIR1
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-esb2ccp-pair2
+    topicName: STP_ESB2CCP_PAIR2
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-esb2core
+    topicName: STP_ESB2CORE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-forward2user-other
+    topicName: STP_FORWARD2USER_OTHER
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-heartbeat-fr-topic
+    topicName: STP_HEARTBEAT_FR_TOPIC
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-incoming-xml-bank
+    topicName: STP_INCOMING_XML_BANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-incoming-xml-ccpbank
+    topicName: STP_INCOMING_XML_CCPBANK
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-incoming-xml-sbv
+    topicName: STP_INCOMING_XML_SBV
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-insert-core-msg2sentmsg
+    topicName: STP_INSERT_CORE_MSG2SENTMSG
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-inward
+    topicName: STP_INWARD
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-message-duplicate
+    topicName: STP_MESSAGE_DUPLICATE
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-report
+    topicName: STP_REPORT
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-report2ccp
+    topicName: STP_REPORT2CCP
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-request-confirm
+    topicName: STP_REQUEST_CONFIRM
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-send-report
+    topicName: STP_SEND_REPORT
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-vsd-outward
+    topicName: STP_VSD_OUTWARD
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: stp-w2
+    topicName: STP_W2
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: integration.logon
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"
+  - name: integration.logon.reply
+    partitions: 6
+    replicas: 3
+    config:
+      min.insync.replicas: "2"

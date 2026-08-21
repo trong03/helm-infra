@@ -8,6 +8,10 @@ metadata:
     strimzi.io/cluster: {{ include "fss-kafka.name" $ }}
     {{- include "fss-kafka.labels" $ | nindent 4 }}
 spec:
+  {{- /* Ten topic that khac ten CR khi co '_' hoac chu hoa (RFC1123 khong cho) */}}
+  {{- with .topicName }}
+  topicName: {{ . | quote }}
+  {{- end }}
   partitions: {{ required "topic.partitions is required" .partitions }}
   replicas: {{ required "topic.replicas is required" .replicas }}
   {{- with .config }}

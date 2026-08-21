@@ -19,7 +19,10 @@ kafka:
     transaction.state.log.replication.factor: 3
     transaction.state.log.min.isr: 2
     unclean.leader.election.enable: false
-    auto.create.topics.enable: false
+    auto.create.topics.enable: true
+    # Giu 1: topic thanh vien integration.<M>.* tu sinh phai co DUNG 1 partition, nhieu hon la
+    # mat thu tu dien trong mot thanh vien. Doi so nay la topic he thong phai khai bao truoc.
+    num.partitions: 1
 
   # On-prem không có label zone -> dùng hostname (mọi node có). Trải theo NODE, HA khi mất 1 node.
   # Cluster có zone thật thì đổi về topology.kubernetes.io/zone. topologySpread của pod cũng dùng key này.
@@ -143,3 +146,20 @@ users:
         - resource: { type: topic, name: orders-events, patternType: literal }
           operations: [Write, Describe]
           host: "*"
+
+  # UI monitoring (kafka-ui). Chỉ ĐỌC: Read/Describe topic + Describe group + cluster
+  # Describe/DescribeConfigs. Không Write, không Alter, không Create/Delete.
+  # - name: kafka-ui
+  #   authentication: { type: tls }
+  #   authorization:
+  #     type: simple
+  #     acls:
+  #       - resource: { type: cluster }
+  #         operations: [Describe, DescribeConfigs]
+  #         host: "*"
+  #       - resource: { type: topic, name: "*", patternType: literal }
+  #         operations: [Read, Describe, DescribeConfigs]
+  #         host: "*"
+  #       - resource: { type: group, name: "*", patternType: literal }
+  #         operations: [Describe]
+  #         host: "*"

@@ -1,0 +1,23 @@
+# DEV override — dùng KÈM values.yaml, đi với fss-kafka/values-dev.yaml
+# (listener `plain` 9093 không TLS, networkPolicy tắt, không ACL).
+#   helm upgrade --install kafka-ui kafbat/kafka-ui -n kafka \
+#     -f kafka-ui/values.yaml -f kafka-ui/values-dev.yaml
+envs:
+  config:
+    KAFKA_CLUSTERS_0_NAME: fss-kafka-dev
+    KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: fss-kafka-kafka-bootstrap.kafka.svc:9093
+    KAFKA_CLUSTERS_0_READONLY: "false"
+    # Xoá hết SSL props kế thừa từ values.yaml (helm merge map -> phải set null).
+    KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: null
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: null
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: null
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: null
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: null
+  secretMappings: null
+
+volumes: null
+volumeMounts: null
+
+resources:
+  requests: { cpu: 100m, memory: 384Mi }
+  limits:   { cpu: 500m, memory: 768Mi }

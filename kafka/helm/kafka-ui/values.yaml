@@ -1,0 +1,83 @@
+# ============================================================================
+# kafka-ui (kafbat) — values cho chart công khai `kafbat/kafka-ui`.
+# KHÔNG viết chart riêng: chart upstream đã đủ, chỉ cần values.
+#
+#   helm repo add kafbat https://kafbat.github.io/helm-charts
+#   helm upgrade --install kafka-ui kafbat/kafka-ui -n kafka -f kafka-ui/values.yaml
+#
+# Cài TRONG namespace `kafka` (bắt buộc): secretKeyRef không đọc được Secret
+# ở namespace khác — cert của KafkaUser + cluster CA đều nằm ở ns `kafka`.
+#
+# Toàn bộ config cluster đi qua ENV (KAFKA_CLUSTERS_0_*), KHÔNG dùng
+# yamlApplicationConfig. Lý do: Spring Boot ghi đè LIST theo cả list, trộn
+# yaml + env cho `kafka.clusters` sẽ mất phần config còn lại.
+# ============================================================================
+
+replicaCount: 1
+
+envs:
+  config:
+    KAFKA_CLUSTERS_0_NAME: fss-kafka
+    # Listener internal TLS 9093 (mTLS). Dùng FQDN để khớp SAN trong cert của Strimzi.
+    KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: fss-kafka-kafka-bootstrap.kafka.svc:9093
+    # Chỉ đọc — UI không có auth mặc định; chặn mọi hành động ghi (tạo/xoá topic,
+    # produce, reset offset). Đặt "false" khi thật sự cần thao tác ghi.
+    KAFKA_CLUSTERS_0_READONLY: "true"
+
+    KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: SSL
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: PKCS12
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /certs/cluster-ca/ca.p12
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: PKCS12
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: /certs/user/user.p12
+
+  # Mật khẩu p12 do Strimzi sinh ngẫu nhiên -> chỉ lấy được từ Secret, không hardcode.
+  secretMappings:
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:
+      name: fss-kafka-cluster-ca-cert
+      keyName: ca.password
+    KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD:
+      name: kafka-ui           # = tên KafkaUser (users[] trong fss-kafka/values.yaml)
+      keyName: user.password
+
+volumes:
+  - name: cluster-ca
+    secret:
+      secretName: fss-kafka-cluster-ca-cert
+  - name: user-cert
+    secret:
+      secretName: kafka-ui
+volumeMounts:
+  - name: cluster-ca
+    mountPath: /certs/cluster-ca
+    readOnly: true
+  - name: user-cert
+    mountPath: /certs/user
+    readOnly: true
+
+resources:
+  requests: { cpu: 100m, memory: 512Mi }
+  limits:   { cpu: "1",  memory: 1Gi }
+
+# Cluster 3-node, 2 node là control-plane (giống fss-kafka). Có worker riêng -> để [].
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# ClusterIP + port-forward. KHÔNG bật ingress trước khi có auth:
+#   kubectl -n kafka port-forward svc/kafka-ui 8080:80
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  # BẮT BUỘC trước khi enabled: true -> bật auth (AUTH_TYPE=LOGIN_FORM +
+  # SPRING_SECURITY_USER_NAME/PASSWORD qua envs.secretMappings, hoặc OAuth2/OIDC).
+  # UI không auth = ai vào được cũng xem toàn bộ dữ liệu topic.
+  # ingressClassName: nginx
+  # host: kafka-ui.internal.fss.com.vn
+  # tls: { enabled: true, secretName: kafka-ui-tls }
+
+# Chart mặc định đã restricted-compliant (runAsNonRoot, drop ALL, RuntimeDefault)
+# -> chạy được trong ns `kafka` đang enforce PSS restricted. Không override.
