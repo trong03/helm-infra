@@ -1,0 +1,33 @@
+# Toàn bộ image cần cho Longhorn (storage nền) + Kafka (Strimzi KRaft) + ClickHouse
+# (Altinity operator) HA.
+# Nguồn: longhorn/helm/charts-offline/longhorn-1.12.1/values.yaml,
+#         kafka/helm/values-operator.yaml, kafka/helm/charts-offline/*,
+#         kafka/helm/kafka-ui/values.yaml, clickhouse/helm/fss-clickhouse/values.yaml,
+#         clickhouse/helm/charts-offline/clickhouse-operator-install-bundle-0.27.2.yaml
+# Không gồm KafkaConnect/Bridge/MirrorMaker2/Build — fss-kafka không dùng các CR đó.
+
+# --- Longhorn (storage nền, cài TRƯỚC Kafka/ClickHouse vì storage.create dựa vào nó) ---
+docker.io/longhornio/longhorn-engine:v1.12.1
+docker.io/longhornio/longhorn-manager:v1.12.1
+docker.io/longhornio/longhorn-ui:v1.12.1
+docker.io/longhornio/longhorn-instance-manager:v1.12.1
+docker.io/longhornio/longhorn-share-manager:v1.12.1
+docker.io/longhornio/backing-image-manager:v1.12.1
+docker.io/longhornio/support-bundle-kit:v0.0.92
+docker.io/longhornio/csi-attacher:v4.12.0
+docker.io/longhornio/csi-provisioner:v5.3.0
+docker.io/longhornio/csi-node-driver-registrar:v2.17.0
+docker.io/longhornio/csi-resizer:v2.2.1
+docker.io/longhornio/csi-snapshotter:v8.6.0
+docker.io/longhornio/livenessprobe:v2.19.0
+
+# --- Kafka ---
+quay.io/strimzi/operator:1.2.0
+quay.io/strimzi/kafka:1.2.0-kafka-4.3.0
+ghcr.io/kafbat/kafka-ui:v1.5.0
+
+# --- ClickHouse ---
+docker.io/altinity/clickhouse-operator:0.27.2
+docker.io/altinity/metrics-exporter:0.27.2
+docker.io/clickhouse/clickhouse-keeper:25.3
+docker.io/clickhouse/clickhouse-server:25.3

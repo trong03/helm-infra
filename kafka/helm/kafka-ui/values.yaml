@@ -15,8 +15,18 @@
 
 replicaCount: 1
 
+# OFFLINE: dùng image đã cache trên node, không pull.
+image:
+  pullPolicy: IfNotPresent
+
 envs:
   config:
+    # Login UI (LOGIN_FORM). Pass để plaintext ở đây cho gọn — CHỈ hợp dev/nội bộ.
+    # Prod fintech: chuyển pass sang Secret (envs.secretMappings) hoặc OIDC, và đổi 123456.
+    AUTH_TYPE: LOGIN_FORM
+    SPRING_SECURITY_USER_NAME: admin
+    SPRING_SECURITY_USER_PASSWORD: "123456"
+
     KAFKA_CLUSTERS_0_NAME: fss-kafka
     # Listener internal TLS 9093 (mTLS). Dùng FQDN để khớp SAN trong cert của Strimzi.
     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: fss-kafka-kafka-bootstrap.kafka.svc:9093

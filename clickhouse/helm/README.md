@@ -53,6 +53,14 @@ kubectl label namespace clickhouse \
 kubectl apply -f "https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.27.2/deploy/operator/clickhouse-operator-install-bundle.yaml"
 kubectl -n kube-system rollout status deploy/clickhouse-operator
 ```
+
+**Production offline (không internet):** dùng file đã tải sẵn trong `charts-offline/`
+thay vì URL GitHub — xem **[../../OFFLINE-INSTALL.md](../../OFFLINE-INSTALL.md)** để
+chuẩn bị images trước khi mang lên máy production.
+```bash
+kubectl apply -f charts-offline/clickhouse-operator-install-bundle-0.27.2.yaml
+kubectl -n kube-system rollout status deploy/clickhouse-operator
+```
 > Có Helm chart chính chủ `altinity-clickhouse-operator` (v0.27.2, tự cài CRD qua hook) nếu
 > muốn quản operator bằng Helm — repo URL xác nhận trên Artifact Hub (không hardcode ở đây để
 > tránh sai). PROD: pin version cụ thể (đừng `latest`), lưu manifest vào git để audit.

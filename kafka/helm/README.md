@@ -41,6 +41,14 @@ helm upgrade --install strimzi-operator strimzi/strimzi-kafka-operator \
   -n kafka -f values-operator.yaml
 kubectl -n kafka rollout status deploy/strimzi-cluster-operator
 ```
+
+**Production offline (không internet):** dùng chart đã tải sẵn trong `charts-offline/`
+thay vì `helm repo add` — xem **[../../OFFLINE-INSTALL.md](../../OFFLINE-INSTALL.md)** để
+chuẩn bị images + charts trước khi mang lên máy production.
+```bash
+helm upgrade --install strimzi-operator charts-offline/strimzi-kafka-operator-1.2.0/ \
+  -n kafka -f values-operator.yaml
+```
 `values-operator.yaml` xử lý trọn PSS restricted (khai báo, không patch tay):
 - `extraEnvs: STRIMZI_POD_SECURITY_PROVIDER_CLASS=restricted` → pod Kafka đạt restricted
   (chart KHÔNG có key `podSecurityProviderClass` — phải qua `extraEnvs`).
@@ -189,11 +197,18 @@ kubectl -n kafka rollout status deploy/kafka-ui
 kubectl -n kafka port-forward svc/kafka-ui 8080:80   # http://localhost:8080
 ```
 
+**Production offline:** thay bước "Cài UI" bằng chart local —
+`helm -n kafka upgrade --install kafka-ui charts-offline/kafka-ui-1.6.5/ -f kafka-ui/values.yaml`
+(xem [../../OFFLINE-INSTALL.md](../../OFFLINE-INSTALL.md)).
+
 Dev (đi với `fss-kafka/values-dev.yaml`, listener plain 9093, không TLS/ACL):
 ```bash
 helm -n kafka upgrade --install kafka-ui kafbat/kafka-ui \
   -f kafka-ui/values.yaml -f kafka-ui/values-dev.yaml
 ```
+
+Login UI: **admin / 123456** (`AUTH_TYPE=LOGIN_FORM`). Pass để plaintext trong values cho
+gọn — **dev/nội bộ**. Prod: đổi pass + chuyển sang Secret (`envs.secretMappings`) hoặc OIDC.
 
 Mặc định đã chọn:
 - `KAFKA_CLUSTERS_0_READONLY=true` + KafkaUser chỉ có ACL đọc (2 lớp) — UI không sửa được cụm.

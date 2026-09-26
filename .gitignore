@@ -1,0 +1,2 @@
+# Output của scripts/offline/pull-images.sh — tarball image (~1GB+), tự tạo lại được, không commit.
+scripts/offline/out/

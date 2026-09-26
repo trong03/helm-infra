@@ -6,12 +6,20 @@
 watchNamespaces:
   - kafka
 
+# OFFLINE: dùng image đã cache trên node, không pull.
+# (a) pod operator
+image:
+  imagePullPolicy: IfNotPresent
+
 # (1) Operator sinh pod KAFKA đạt PSS restricted.
 # Chart KHÔNG có key riêng cho việc này; phải set qua biến môi trường của operator.
 # Mặc định provider là "baseline" -> pod Kafka thiếu securityContext -> PSS chặn, 0 pod tạo.
 extraEnvs:
   - name: STRIMZI_POD_SECURITY_PROVIDER_CLASS
     value: restricted
+  # (b) pod Kafka (broker/controller) + các pod phụ do operator sinh -> IfNotPresent
+  - name: STRIMZI_IMAGE_PULL_POLICY
+    value: IfNotPresent
 
 # (2) Chính pod OPERATOR đạt PSS restricted (chart để trống mặc định -> bị PSS chặn khi rollout).
 podSecurityContext:
