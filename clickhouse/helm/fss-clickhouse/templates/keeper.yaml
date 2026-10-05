@@ -40,6 +40,14 @@ spec:
           tolerations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          # Ép tối đa 1 Keeper/node bằng nhãn của chart (không phụ thuộc nhãn nội bộ của operator).
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: {{ .Values.antiAffinityTopologyKey | quote }}
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  fss.io/component: clickhouse-keeper
           securityContext:
             {{- toYaml .Values.keeper.podSecurityContext | nindent 12 }}
           containers:

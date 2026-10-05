@@ -70,6 +70,15 @@ spec:
           tolerations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          # Ép tối đa 1 replica/node theo nhãn của chart. podDistribution của operator chỉ tách theo
+          # shard/cycleIndex -> với 1 shard các replica vẫn có thể dồn vào cùng node.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: {{ .Values.antiAffinityTopologyKey | quote }}
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  fss.io/component: clickhouse-server
           securityContext:
             {{- toYaml .Values.clickhouse.podSecurityContext | nindent 12 }}
           containers:
