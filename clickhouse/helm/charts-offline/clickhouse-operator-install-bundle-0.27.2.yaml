@@ -5388,7 +5388,7 @@ spec:
 # Template Parameters:
 #
 # COMMENT=
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # NAME=clickhouse-operator
 #
 # Setup ServiceAccount
@@ -5396,13 +5396,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: clickhouse-operator
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
 ---
 # Template Parameters:
 #
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=#
 # ROLE_KIND=ClusterRole
 # ROLE_NAME=clickhouse-operator-kube-system
@@ -5422,7 +5422,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: clickhouse-operator-kube-system
-  #namespace: kube-system
+  #namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
 rules:
@@ -5654,7 +5654,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: clickhouse-operator-kube-system
-  #namespace: kube-system
+  #namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
 roleRef:
@@ -5664,11 +5664,11 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: clickhouse-operator
-    namespace: kube-system
+    namespace: clickhouse-operator
 ---
 # Template Parameters:
 #
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 # ROLE_KIND=Role
 # ROLE_NAME=clickhouse-operator
@@ -5688,7 +5688,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: clickhouse-operator
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
 rules:
@@ -5920,7 +5920,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: clickhouse-operator
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
 roleRef:
@@ -5930,19 +5930,19 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: clickhouse-operator
-    namespace: kube-system
+    namespace: clickhouse-operator
 ---
 # Template Parameters:
 #
 # NAME=etc-clickhouse-operator-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-clickhouse-operator-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -5976,7 +5976,7 @@ data:
       # the operator runs in `kube-system`); use [".*"] to force watch-all elsewhere.
       # Empty `exclude` matches none. `exclude` is applied after `include`.
       namespaces:
-        include: []
+        include: [".*"]
         exclude: []
     
       # Behavior when ClickHouseOperatorConfiguration changes: none | restart
@@ -6648,14 +6648,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-clickhouse-operator-confd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-clickhouse-operator-confd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -6664,14 +6664,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-clickhouse-operator-configd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-clickhouse-operator-configd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -6763,14 +6763,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-clickhouse-operator-templatesd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-clickhouse-operator-templatesd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -6863,14 +6863,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-clickhouse-operator-usersd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-clickhouse-operator-usersd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -6926,14 +6926,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-keeper-operator-confd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-keeper-operator-confd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -6942,14 +6942,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-keeper-operator-configd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-keeper-operator-configd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -7039,14 +7039,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-keeper-operator-templatesd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-keeper-operator-templatesd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -7057,14 +7057,14 @@ data:
 # Template Parameters:
 #
 # NAME=etc-keeper-operator-usersd-files
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: etc-keeper-operator-usersd-files
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -7072,7 +7072,7 @@ data:
 ---
 #
 # Template parameters available:
-#   NAMESPACE=kube-system
+#   NAMESPACE=clickhouse-operator
 #   COMMENT=
 #   OPERATOR_VERSION=0.27.2
 #   CH_USERNAME_SECRET_PLAIN=clickhouse_operator
@@ -7082,7 +7082,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: clickhouse-operator
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -7093,7 +7093,7 @@ stringData:
 ---
 # Template Parameters:
 #
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 # OPERATOR_IMAGE=altinity/clickhouse-operator:0.27.2
 # OPERATOR_IMAGE_PULL_POLICY=Always
@@ -7106,7 +7106,7 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: clickhouse-operator
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator
@@ -7199,7 +7199,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            # metadata.namespace: kube-system
+            # metadata.namespace: clickhouse-operator
             - name: OPERATOR_POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -7281,7 +7281,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            # metadata.namespace: kube-system
+            # metadata.namespace: clickhouse-operator
             - name: OPERATOR_POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -7329,7 +7329,7 @@ spec:
 ---
 # Template Parameters:
 #
-# NAMESPACE=kube-system
+# NAMESPACE=clickhouse-operator
 # COMMENT=
 #
 # Setup ClusterIP Service to provide monitoring metrics for Prometheus
@@ -7341,7 +7341,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: clickhouse-operator-metrics
-  namespace: kube-system
+  namespace: clickhouse-operator
   labels:
     clickhouse.altinity.com/chop: 0.27.2
     app: clickhouse-operator

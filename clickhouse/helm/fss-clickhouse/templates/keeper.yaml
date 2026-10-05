@@ -5,6 +5,12 @@ metadata:
   labels:
     {{- include "fss-clickhouse.labels" . | nindent 4 }}
 spec:
+  defaults:
+    # Bắt buộc: nếu không, operator bỏ qua podTemplates/volumeClaimTemplates bên dưới
+    # (pod không có securityContext/PVC/anti-affinity).
+    templates:
+      podTemplate: keeper-pod
+      dataVolumeClaimTemplate: data-volume
   configuration:
     clusters:
       - name: keeper

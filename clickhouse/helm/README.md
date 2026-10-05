@@ -49,7 +49,7 @@ kubectl label namespace clickhouse \
 ### 1. Operator (release "operator", cluster-scoped — cài 1 lần cho cả cluster)
 Đường **canonical, verify được** là bundle manifest PIN version (0.27.2):
 ```bash
-# Operator mặc định cài vào kube-system và watch mọi namespace.
+# Bản URL upstream cài vào kube-system. Bản offline (charts-offline/) đã sửa sang namespace clickhouse-operator.
 kubectl apply -f "https://raw.githubusercontent.com/Altinity/clickhouse-operator/0.27.2/deploy/operator/clickhouse-operator-install-bundle.yaml"
 kubectl -n kube-system rollout status deploy/clickhouse-operator
 ```
@@ -58,8 +58,9 @@ kubectl -n kube-system rollout status deploy/clickhouse-operator
 thay vì URL GitHub — xem **[../../OFFLINE-INSTALL.md](../../OFFLINE-INSTALL.md)** để
 chuẩn bị images trước khi mang lên máy production.
 ```bash
+kubectl create namespace clickhouse-operator
 kubectl apply -f charts-offline/clickhouse-operator-install-bundle-0.27.2.yaml
-kubectl -n kube-system rollout status deploy/clickhouse-operator
+kubectl -n clickhouse-operator rollout status deploy/clickhouse-operator
 ```
 > Có Helm chart chính chủ `altinity-clickhouse-operator` (v0.27.2, tự cài CRD qua hook) nếu
 > muốn quản operator bằng Helm — repo URL xác nhận trên Artifact Hub (không hardcode ở đây để
