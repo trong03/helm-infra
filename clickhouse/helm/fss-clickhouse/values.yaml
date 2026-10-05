@@ -44,6 +44,8 @@ clickhouse:
   replicasCount: 2              # >=2 để HA. Mỗi replica 1 node (ReplicaAntiAffinity).
   maxPerNode: 1                 # tối đa 1 CH pod/node -> replicasCount <= số node schedulable
   image: "clickhouse/clickhouse-server:25.3"   # prod: pin theo digest; version KHỚP keeper
+  # Sidecar tail log do operator thêm (vì có log-volume). Offline/prod: đổi sang image mirror nội bộ, pin tag/digest.
+  logImage: "registry.access.redhat.com/ubi8/ubi-minimal:latest"
   storage:
     dataSize: 20Gi              # < disk trống Longhorn mỗi node (numberOfReplicas=1)
     logSize: 2Gi

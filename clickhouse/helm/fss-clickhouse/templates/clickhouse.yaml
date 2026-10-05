@@ -78,6 +78,8 @@ spec:
                 {{- toYaml .Values.clickhouse.containerSecurityContext | nindent 16 }}
             # Sidecar log do operator tự thêm (vì có logVolumeClaimTemplate) — cũng phải qua PSS restricted.
             - name: clickhouse-log
+              image: {{ .Values.clickhouse.logImage | quote }}
+              imagePullPolicy: IfNotPresent
               securityContext:
                 {{- toYaml .Values.clickhouse.containerSecurityContext | nindent 16 }}
     volumeClaimTemplates:
