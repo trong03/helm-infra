@@ -1,5 +1,5 @@
 # Dev overlay: sizing nhỏ, no NetworkPolicy, SC sẵn có. KHÔNG dùng cho prod.
-# Vẫn giữ keeper.replicas=3 + clickhouse.replicasCount=2 vì đó là điều kiện HA tối thiểu;
+# Vẫn giữ keeper.replicas=3 + clickhouse.replicasCount=3 (1 pod/node, đủ 3 node) để test HA;
 # hạ xuống 1 chỉ hợp smoke-test và MẤT tính HA.
 storage:
   create: false
@@ -15,7 +15,7 @@ keeper:
 
 clickhouse:
   shardsCount: 1
-  replicasCount: 2
+  replicasCount: 3
   storage:
     dataSize: 5Gi
     logSize: 1Gi
