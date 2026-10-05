@@ -40,6 +40,10 @@ spec:
         {{- range $u.networks }}
         - {{ . | quote }}
         {{- end }}
+      {{- with $u.password }}
+      # CHỈ dev/test: plaintext nằm trong values + ConfigMap. Prod dùng passwordSecret.
+      {{ $u.name }}/password: {{ . | quote }}
+      {{- end }}
       {{- with $u.passwordSecret }}
       {{ $u.name }}/password_sha256_hex/valueFrom:
         secretKeyRef:
