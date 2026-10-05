@@ -80,6 +80,9 @@ spec:
             - name: clickhouse-log
               image: {{ .Values.clickhouse.logImage | quote }}
               imagePullPolicy: IfNotPresent
+              # Operator mặc định chạy sleep-loop; khai báo lại container thì mất default -> phải tự đặt.
+              command: ["/bin/sh", "-c", "--"]
+              args: ["while true; do sleep 30; done;"]
               securityContext:
                 {{- toYaml .Values.clickhouse.containerSecurityContext | nindent 16 }}
     volumeClaimTemplates:
