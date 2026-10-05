@@ -92,6 +92,13 @@ pdb:
   enabled: true
   maxUnavailable: 1
 
+# Expose ra ngoài cluster qua NodePort. Mặc định TẮT (prod dùng Ingress/LB + TLS).
+nodePort:
+  enabled: false
+  http: 30023                   # 30000-32767; JDBC/DataGrip dùng cổng HTTP
+  native: null                  # đặt số (vd 30900) nếu cần native 9000
+  externalTrafficPolicy: Cluster
+
 networkPolicy:
   enabled: true
   clientNamespaceLabel: clickhouse-client

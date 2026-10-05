@@ -1,0 +1,27 @@
+{{- if .Values.nodePort.enabled }}
+# Expose ClickHouse ra ngoài cluster cho client (DataGrip...). CHỈ dùng dev/test: chart chưa bật TLS.
+# Selector dùng label do chính chart gắn (fss.io/component) để không phụ thuộc label nội bộ của operator.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fss-clickhouse.name" . }}-nodeport
+  labels:
+    {{- include "fss-clickhouse.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  # Cluster: kube-proxy SNAT -> ClickHouse thấy IP node, user phải cho phép subnet của node.
+  externalTrafficPolicy: {{ .Values.nodePort.externalTrafficPolicy }}
+  selector:
+    fss.io/component: clickhouse-server
+  ports:
+    - name: http
+      port: 8123
+      targetPort: 8123
+      nodePort: {{ .Values.nodePort.http }}
+    {{- if .Values.nodePort.native }}
+    - name: native
+      port: 9000
+      targetPort: 9000
+      nodePort: {{ .Values.nodePort.native }}
+    {{- end }}
+{{- end }}

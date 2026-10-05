@@ -26,5 +26,19 @@ clickhouse:
 networkPolicy:
   enabled: false
 
-# Dev có thể tạm bỏ auth mạnh, nhưng vẫn KHÔNG hardcode — để rỗng dùng user 'default' operator-managed.
-users: []
+nodePort:
+  enabled: true
+  http: 30023
+
+# User 'default' của operator chỉ cho localhost/mạng pod -> client ngoài qua NodePort cần user riêng.
+# Tạo Secret TRƯỚC khi cài (xem README: password_sha256_hex). Dev: mở dải private; prod thu hẹp subnet.
+users:
+  - name: dev_admin
+    profile: default
+    networks:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+    passwordSecret:
+      name: clickhouse-dev-admin
+      key: password_sha256_hex
