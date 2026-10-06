@@ -39,4 +39,8 @@ users:
       - "10.0.0.0/8"
       - "172.16.0.0/12"
       - "192.168.0.0/16"
+      # NodePort (externalTrafficPolicy=Cluster) SNAT về IP node khi pod nằm cùng node tiếp nhận -> phải cho phép IP 3 node.
+      - "103.82.24.188/32"
+      - "103.179.172.18/32"
+      - "103.179.173.16/32"
     password: "admin123"
